@@ -26,7 +26,12 @@ export function isLocalPlaylistId(id: string | null | undefined): boolean {
   return typeof id === "string" && id.startsWith(PREFIX);
 }
 
-function readAll(): LocalPlaylistRecord[] {
+const DB_NAME = "liner-guest-library";
+const DB_VERSION = 1;
+const STORE_NAME = "playlists";
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function readFallback(): LocalPlaylistRecord[] {
   if (typeof window === "undefined") return [];
   try {
     const parsed: unknown = JSON.parse(
@@ -48,16 +53,88 @@ function readAll(): LocalPlaylistRecord[] {
   }
 }
 
-function writeAll(playlists: LocalPlaylistRecord[]): void {
+function openPlaylistDb(): Promise<IDBDatabase> {
+  if (typeof indexedDB === "undefined") {
+    return Promise.reject(new Error("IndexedDB is unavailable"));
+  }
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error ?? new Error("Could not open local playlist database"));
+    };
+    request.onblocked = () => {
+      dbPromise = null;
+      reject(new Error("Local playlist database is blocked by another window"));
+    };
+  });
+  return dbPromise;
+}
+
+async function readAll(): Promise<LocalPlaylistRecord[]> {
+  try {
+    const db = await openPlaylistDb();
+    const records = await new Promise<LocalPlaylistRecord[]>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const request = tx.objectStore(STORE_NAME).getAll();
+      request.onsuccess = () => resolve(request.result as LocalPlaylistRecord[]);
+      request.onerror = () => reject(request.error);
+    });
+    if (records.length > 0) return records;
+    // One-time migration from the early localStorage implementation.
+    const legacy = readFallback();
+    if (legacy.length > 0) {
+      await writeAll(legacy);
+      return legacy;
+    }
+    return records;
+  } catch {
+    return readFallback();
+  }
+}
+
+async function writeAll(playlists: LocalPlaylistRecord[]): Promise<void> {
   if (typeof window === "undefined") {
     throw new Error("Local playlists are unavailable outside the app.");
   }
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(playlists));
+    const db = await openPlaylistDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const clearRequest = store.clear();
+      clearRequest.onerror = () => reject(clearRequest.error);
+      for (const playlist of playlists) store.put(playlist);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("Playlist save was aborted"));
+    });
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {}
   } catch {
-    throw new Error(
-      "Could not save this playlist on this device. Free up browser storage and try again.",
-    );
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(playlists));
+    } catch {
+      throw new Error(
+        "Could not save this playlist on this device. Free up local storage and try again.",
+      );
+    }
   }
 }
 
@@ -129,13 +206,13 @@ export function toLocalTrack(input: Track | ContractTrack): Track {
 }
 
 export async function listLocalPlaylists(): Promise<LocalPlaylistRecord[]> {
-  return readAll().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return (await readAll()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export async function getLocalPlaylist(
   id: string,
 ): Promise<LocalPlaylistRecord | null> {
-  return readAll().find((playlist) => playlist.id === id) ?? null;
+  return (await readAll()).find((playlist) => playlist.id === id) ?? null;
 }
 
 export async function createLocalPlaylist(
@@ -163,7 +240,7 @@ export async function createLocalPlaylist(
     revision: 1,
     tracks: normalizedTracks,
   };
-  writeAll([...readAll(), playlist]);
+  await writeAll([...(await readAll()), playlist]);
   emitChanged();
   return playlist;
 }
@@ -172,7 +249,7 @@ export async function updateLocalPlaylist(
   id: string,
   patch: { title?: string; description?: string },
 ): Promise<LocalPlaylistRecord> {
-  const playlists = readAll();
+  const playlists = await readAll();
   const index = playlists.findIndex((playlist) => playlist.id === id);
   if (index < 0) throw new Error("Local playlist not found.");
   const current = playlists[index];
@@ -188,7 +265,7 @@ export async function updateLocalPlaylist(
     revision: current.revision + 1,
   };
   playlists[index] = next;
-  writeAll(playlists);
+  await writeAll(playlists);
   emitChanged();
   return next;
 }
