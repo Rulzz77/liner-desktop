@@ -177,6 +177,7 @@ describe("finalizeImportedPlaylist", () => {
   });
 
   it("can save an imported playlist locally with no Liner account session", async () => {
+    const createServerPlaylist = vi.spyOn(api, "createPlaylist");
     const result = await finalizeImportedPlaylist("Offline mix", undefined, [
       track,
     ]);
@@ -185,6 +186,6 @@ describe("finalizeImportedPlaylist", () => {
     expect((await listLocalPlaylists()).map((playlist) => playlist.title)).toContain(
       "Offline mix",
     );
-    expect(api.createPlaylist).not.toHaveBeenCalled();
+    expect(createServerPlaylist).not.toHaveBeenCalled();
   });
 });
