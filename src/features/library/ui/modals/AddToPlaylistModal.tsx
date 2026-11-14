@@ -83,7 +83,18 @@ export default function AddToPlaylistModal() {
     const targetPlaylist = playlists.find((p) => p.id === playlistId);
     setAddingTo(playlistId);
     try {
-      await addTrack.mutateAsync({ playlistId, trackId: track.id });
+      await addTrack.mutateAsync({
+        playlistId,
+        trackId: track.id,
+        track: {
+          id: track.id,
+          title: track.title,
+          artists: track.artists,
+          coverUrl: track.coverUrl || "",
+          durationMs: track.durationMs ?? 0,
+          playCount: 0,
+        },
+      });
       toast(t("common.added_to_playlist"), "checkmark", {
         description: targetPlaylist?.title || undefined,
       });
