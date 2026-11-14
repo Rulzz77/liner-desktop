@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type PluginOption } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import electron from "vite-plugin-electron/simple";
@@ -7,6 +7,8 @@ import pkg from "./package.json" with { type: "json" };
 import { contentSecurityPolicyPlugin } from "./vite.csp.ts";
 
 export default defineConfig(({ command, mode }) => {
+  const isAndroid = mode === "android";
+
   if (command === "serve") {
     const devEnv = loadEnv(mode, process.cwd(), ["LINER_", "VITE_API_URL"]);
     for (const name of [
@@ -19,14 +21,15 @@ export default defineConfig(({ command, mode }) => {
     }
   }
 
-  return {
-    define: {
-      __APP_VERSION__: JSON.stringify(pkg.version),
-    },
-    plugins: [
-      react(),
-      tailwindcss(),
-      contentSecurityPolicyPlugin(),
+  const plugins: PluginOption[] = [
+    react(),
+    tailwindcss(),
+    contentSecurityPolicyPlugin(),
+  ];
+
+  // The Android WebView uses Capacitor instead of Electron's main/preload process.
+  if (!isAndroid) {
+    plugins.push(
       electron({
         main: {
           entry: "electron/main.ts",
@@ -52,7 +55,15 @@ export default defineConfig(({ command, mode }) => {
           },
         },
       }),
-    ],
+    );
+  }
+
+  return {
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+      __LINER_TARGET__: JSON.stringify(isAndroid ? "android" : "desktop"),
+    },
+    plugins,
     clearScreen: false,
     resolve: {
       alias: {
