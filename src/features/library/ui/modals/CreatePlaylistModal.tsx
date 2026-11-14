@@ -173,6 +173,14 @@ export default function CreatePlaylistModal() {
           await addTrack.mutateAsync({
             playlistId: playlist.id,
             trackId: pendingTrack.id,
+            track: {
+              id: pendingTrack.id,
+              title: pendingTrack.title,
+              artists: pendingTrack.artists,
+              coverUrl: pendingTrack.coverUrl || "",
+              durationMs: pendingTrack.durationMs ?? 0,
+              playCount: 0,
+            },
           });
           toast(t("common.added_to_playlist"), "checkmark", {
             description: playlist.title || trimmed,

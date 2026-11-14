@@ -2,6 +2,16 @@ import { useCallback, useState } from "react";
 import { api } from "@/shared/api";
 import { notifyLibraryChanged, evictPlaylistFromCache } from "./usePlaylists";
 import { setTrackLiked, toggleTrackLike } from "./useLikedTracks";
+import {
+  addLocalPlaylistTrack,
+  createLocalPlaylist,
+  deleteLocalPlaylist,
+  isLocalPlaylistId,
+  moveLocalPlaylistTrack,
+  removeLocalPlaylistTrack,
+} from "../services/localPlaylists";
+import type { Track } from "@/shared/types";
+import type { Track as ContractTrack } from "@/shared/contracts";
 
 type Options = {
   onSuccess?: (...args: any[]) => void;
@@ -38,15 +48,30 @@ function useMutation<T, R = unknown>(action: (input: T) => Promise<R>) {
 
 export function useAddPlaylistTracks() {
   return useMutation(
-    ({ playlistId, trackId }: { playlistId: string; trackId: string }) =>
-      api.addPlaylistTrack(playlistId, trackId),
+    async ({
+      playlistId,
+      trackId,
+      track,
+    }: {
+      playlistId: string;
+      trackId: string;
+      track?: Track | ContractTrack;
+    }) => {
+      if (isLocalPlaylistId(playlistId)) {
+        const snapshot = track ?? (await api.getTrack(trackId));
+        return addLocalPlaylistTrack(playlistId, snapshot);
+      }
+      return api.addPlaylistTrack(playlistId, trackId);
+    },
   );
 }
 
 export function useRemovePlaylistTracks() {
   return useMutation(
     ({ playlistId, itemId }: { playlistId: string; itemId: string }) =>
-      api.removePlaylistItem(playlistId, itemId),
+      isLocalPlaylistId(playlistId)
+        ? removeLocalPlaylistTrack(playlistId, itemId)
+        : api.removePlaylistItem(playlistId, itemId),
   );
 }
 
@@ -62,20 +87,29 @@ export function useReorderPlaylistTracks() {
       itemId: string;
       beforeItemId: string | null;
       revision: number;
-    }) => api.movePlaylistItem(playlistId, itemId, beforeItemId, revision),
+    }) =>
+      isLocalPlaylistId(playlistId)
+        ? moveLocalPlaylistTrack(playlistId, itemId, beforeItemId)
+        : api
+            .movePlaylistItem(playlistId, itemId, beforeItemId, revision)
+            .then(() => undefined),
   );
 }
 
 export function useCreatePlaylist() {
   return useMutation(
     ({ title, description }: { title: string; description?: string }) =>
-      api.createPlaylist({ title, description }),
+      createLocalPlaylist(title, description),
   );
 }
 
 export function useDeletePlaylist() {
   return useMutation(async ({ playlistId }: { playlistId: string }) => {
     evictPlaylistFromCache(playlistId);
+    if (isLocalPlaylistId(playlistId)) {
+      await deleteLocalPlaylist(playlistId);
+      return;
+    }
     await api.deletePlaylist(playlistId);
   });
 }
@@ -112,6 +146,10 @@ export function useRemoveExternalItem() {
     }) => {
       if (type === "playlist") {
         evictPlaylistFromCache(id);
+        if (isLocalPlaylistId(id)) {
+          await deleteLocalPlaylist(id);
+          return;
+        }
         if (isOwned === false) {
           return api.removeCollection("playlists", id);
         }

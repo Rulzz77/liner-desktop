@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { api, mediaUrl, toMaxQualityAvatarUrl } from "@/shared/api";
+import {
+  api,
+  getAuthSession,
+  mediaUrl,
+  toMaxQualityAvatarUrl,
+} from "@/shared/api";
 import {
   freshFor,
   revalidateResource,
@@ -16,6 +21,9 @@ const SAVED_ITEMS_POLICY = { isFresh: freshFor(5 * 60_000) };
 async function loadSavedItems(
   type: EntityType,
 ): Promise<LibraryItemViewModel[]> {
+  // Saved cloud collections belong to a Liner account. Guest mode simply
+  // returns an empty cloud collection while local playlists remain available.
+  if (!getAuthSession()?.accessToken) return EMPTY_ITEMS;
   const collectionType =
     type === "album" ? "albums" : type === "artist" ? "artists" : "playlists";
   const response = await api.listSavedCollections(collectionType);

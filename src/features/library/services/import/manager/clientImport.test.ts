@@ -14,9 +14,10 @@ vi.mock("@/shared/youtube", async (importOriginal) => {
   return { ...actual, searchRaw: mocks.searchRaw };
 });
 
-import { api, ApiError } from "@/shared/api";
+import { api } from "@/shared/api";
 import { runClientImport } from "./clientImportManager";
 import { finalizeImportedPlaylist } from "./finalizeImport";
+import { listLocalPlaylists } from "../../localPlaylists";
 
 function searchTrack(
   id: string,
@@ -54,6 +55,7 @@ const spotifyPlaylist = {
 };
 
 afterEach(() => {
+  window.localStorage.removeItem("liner:local-playlists:v1");
   vi.restoreAllMocks();
   mocks.parseImportSource.mockReset();
   mocks.searchRaw.mockReset();
@@ -142,36 +144,48 @@ describe("finalizeImportedPlaylist", () => {
     artists: [{ id: "UC1", name: "Rick Astley" }],
     durationMs: 213_000,
   };
-  const playlist = { id: "pl_1", title: "Mine", isPublic: false } as Awaited<
-    ReturnType<typeof api.createPlaylist>
-  >;
 
-  it("saves all matched tracks in one bulk request, deduplicated", async () => {
-    vi.spyOn(api, "createPlaylist").mockResolvedValue(playlist);
-    const bulk = vi
-      .spyOn(api, "addPlaylistTrackSnapshots")
-      .mockResolvedValue({ items: [], added: 1, rejected: 0 });
+  it("saves deduplicated imported tracks locally without account API calls", async () => {
+    const createServerPlaylist = vi.spyOn(api, "createPlaylist");
+    const addServerTracks = vi.spyOn(api, "addPlaylistTrackSnapshots");
 
-    await expect(
-      finalizeImportedPlaylist("Mine", undefined, [track, track]),
-    ).resolves.toEqual({ playlistId: "pl_1", saved: 1 });
-    expect(bulk).toHaveBeenCalledWith("pl_1", [track]);
+    const result = await finalizeImportedPlaylist(
+      "Mine",
+      "Imported from Spotify",
+      [track, track],
+    );
+
+    expect(result.playlistId).toMatch(/^local-playlist:/);
+    expect(result.saved).toBe(1);
+    expect(createServerPlaylist).not.toHaveBeenCalled();
+    expect(addServerTracks).not.toHaveBeenCalled();
+
+    const playlists = await listLocalPlaylists();
+    expect(playlists).toHaveLength(1);
+    expect(playlists[0]).toMatchObject({
+      id: result.playlistId,
+      title: "Mine",
+      description: "Imported from Spotify",
+    });
+    expect(playlists[0].tracks).toHaveLength(1);
+    expect(playlists[0].tracks[0]).toMatchObject({
+      id: track.id,
+      title: track.title,
+      artists: "Rick Astley",
+      durationMs: track.durationMs,
+    });
   });
 
-  it("falls back to per-track adds with snapshots when the bulk endpoint is missing", async () => {
-    vi.spyOn(api, "createPlaylist").mockResolvedValue(playlist);
-    vi.spyOn(api, "addPlaylistTrackSnapshots").mockRejectedValue(
-      new ApiError(404, "Not Found"),
-    );
-    const single = vi
-      .spyOn(api, "addPlaylistTrack")
-      .mockResolvedValue(
-        {} as Awaited<ReturnType<typeof api.addPlaylistTrack>>,
-      );
+  it("can save an imported playlist locally with no Liner account session", async () => {
+    const createServerPlaylist = vi.spyOn(api, "createPlaylist");
+    const result = await finalizeImportedPlaylist("Offline mix", undefined, [
+      track,
+    ]);
 
-    await expect(
-      finalizeImportedPlaylist("Mine", undefined, [track]),
-    ).resolves.toEqual({ playlistId: "pl_1", saved: 1 });
-    expect(single).toHaveBeenCalledWith("pl_1", track.id, track);
+    expect(result.saved).toBe(1);
+    expect(
+      (await listLocalPlaylists()).map((playlist) => playlist.title),
+    ).toContain("Offline mix");
+    expect(createServerPlaylist).not.toHaveBeenCalled();
   });
 });
