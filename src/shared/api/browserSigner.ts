@@ -38,8 +38,9 @@ function decodeBase64(value: string): Uint8Array {
 
 async function loadSigner(): Promise<SignerExports> {
   if (!signerPromise) {
-    signerPromise = WebAssembly.instantiate(decodeBase64(SIGNER_WASM_BASE64), {})
-      .then(({ instance }) => instance.exports as unknown as SignerExports)
+    signerPromise = WebAssembly.compile(decodeBase64(SIGNER_WASM_BASE64))
+      .then((module) => WebAssembly.instantiate(module, {}))
+      .then((instance) => instance.exports as unknown as SignerExports)
       .catch((error: unknown) => {
         signerPromise = null;
         throw error;
