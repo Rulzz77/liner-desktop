@@ -1,5 +1,5 @@
 import type { Track } from "@/shared/contracts";
-import { createLocalPlaylist } from "../localPlaylists";
+import { createLocalPlaylist } from "../../localPlaylists";
 
 export interface FinalizedPlaylist {
   playlistId: string;
