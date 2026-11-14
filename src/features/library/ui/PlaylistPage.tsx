@@ -695,7 +695,9 @@ function LibraryPlaylistContent() {
                                   description: next,
                                 });
                             void update.then(() =>
-                              window.dispatchEvent(new Event("library:changed")),
+                              window.dispatchEvent(
+                                new Event("library:changed"),
+                              ),
                             );
                           }
                           setIsEditingDescription(false);

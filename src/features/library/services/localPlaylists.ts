@@ -46,15 +46,14 @@ function readFallback(): LocalPlaylistRecord[] {
       window.localStorage.getItem(STORAGE_KEY) ?? "[]",
     );
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is LocalPlaylistRecord =>
-        Boolean(
-          item &&
-            typeof item === "object" &&
-            typeof (item as LocalPlaylistRecord).id === "string" &&
-            isLocalPlaylistId((item as LocalPlaylistRecord).id) &&
-            Array.isArray((item as LocalPlaylistRecord).tracks),
-        ),
+    return parsed.filter((item): item is LocalPlaylistRecord =>
+      Boolean(
+        item &&
+        typeof item === "object" &&
+        typeof (item as LocalPlaylistRecord).id === "string" &&
+        isLocalPlaylistId((item as LocalPlaylistRecord).id) &&
+        Array.isArray((item as LocalPlaylistRecord).tracks),
+      ),
     );
   } catch {
     return [];
@@ -175,12 +174,14 @@ export function toLocalTrack(input: Track | ContractTrack): Track {
   const artists =
     typeof rawArtists === "string"
       ? rawArtists
-      : artistList?.map((artist) => artist.name).join(", ") ?? "Unknown artist";
+      : (artistList?.map((artist) => artist.name).join(", ") ??
+        "Unknown artist");
   const cover = source.cover;
   const coverUrl =
     typeof source.coverUrl === "string"
       ? source.coverUrl
-      : cover && typeof cover === "object" &&
+      : cover &&
+          typeof cover === "object" &&
           typeof (cover as Record<string, unknown>).url === "string"
         ? String((cover as Record<string, unknown>).url)
         : "";
@@ -331,9 +332,7 @@ export async function removeLocalPlaylistTrack(
   const current = playlists[index];
   const next: LocalPlaylistRecord = {
     ...current,
-    tracks: current.tracks.filter(
-      (track) => track.playlistItemId !== itemId,
-    ),
+    tracks: current.tracks.filter((track) => track.playlistItemId !== itemId),
     updatedAt: new Date().toISOString(),
     revision: current.revision + 1,
   };

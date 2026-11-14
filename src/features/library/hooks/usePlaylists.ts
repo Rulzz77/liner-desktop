@@ -120,9 +120,7 @@ const SERVER_SNAPSHOT = {
 
 function localSummary(playlist: LocalPlaylistRecord): LibraryPlaylistSummary {
   const coverUrls = [
-    ...new Set(
-      playlist.tracks.map((track) => track.coverUrl).filter(Boolean),
-    ),
+    ...new Set(playlist.tracks.map((track) => track.coverUrl).filter(Boolean)),
   ].slice(0, 4);
   return {
     id: playlist.id,
@@ -221,9 +219,7 @@ function load(force = false): Promise<void> {
 
     const merged = [...localItems, ...serverItems];
     cache = {
-      playlists: merged.sort((a, b) =>
-        b.updatedAt.localeCompare(a.updatedAt),
-      ),
+      playlists: merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
       total: merged.length,
     };
     loaded = true;
