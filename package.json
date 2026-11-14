@@ -27,7 +27,12 @@
     "electron:build:linux": "tsc -b && vite build && electron-builder --linux",
     "electron:build:win": "pnpm native:build && tsc -b && vite build && electron-builder --win",
     "electron:build:mac": "tsc -b && vite build && electron-builder --mac",
-    "native:build": "node scripts/build-native-addon.cjs"
+    "native:build": "node scripts/build-native-addon.cjs",
+    "android:build": "vite build --mode android",
+    "android:add": "cap add android",
+    "android:sync": "vite build --mode android && cap sync android",
+    "android:open": "cap open android",
+    "android:run": "cap run android"
   },
   "build": {
     "appId": "com.hkamori.liner",
@@ -142,7 +147,8 @@
     "tar": "^7.5.22",
     "uqr": "0.1.3",
     "youtubei.js": "18.3.0",
-    "zustand": "^5.0.16"
+    "zustand": "^5.0.16",
+    "@capacitor/core": "^8.6.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -163,6 +169,8 @@
     "vite": "^8.3.5",
     "vite-plugin-electron": "^1.1.2",
     "vite-plugin-electron-renderer": "^1.0.0",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2"
   }
 }
