@@ -61,6 +61,10 @@ import type { Track } from "@/shared/types";
 import { useTranslation } from "@/languages";
 import { api } from "@/shared/api";
 import {
+  isLocalPlaylistId,
+  updateLocalPlaylist,
+} from "../services/localPlaylists";
+import {
   useTrackSearch,
   TrackSearchField,
   TrackSearchEmpty,
@@ -636,13 +640,12 @@ function LibraryPlaylistContent() {
                         if (!isEditingTitle) return;
                         const title = e.currentTarget.textContent?.trim();
                         if (title && decodedId && title !== viewData.title) {
-                          void api
-                            .updatePlaylist(decodedId, { title })
-                            .then(() =>
-                              window.dispatchEvent(
-                                new Event("library:changed"),
-                              ),
-                            );
+                          const update = isLocalPlaylistId(decodedId)
+                            ? updateLocalPlaylist(decodedId, { title })
+                            : api.updatePlaylist(decodedId, { title });
+                          void update.then(() =>
+                            window.dispatchEvent(new Event("library:changed")),
+                          );
                         }
                         setIsEditingTitle(false);
                       }}
@@ -684,13 +687,12 @@ function LibraryPlaylistContent() {
                           const next =
                             e.currentTarget.textContent?.trim() ?? "";
                           if (decodedId && next !== viewData.bio) {
-                            void api
-                              .updatePlaylist(decodedId, { description: next })
-                              .then(() =>
-                                window.dispatchEvent(
-                                  new Event("library:changed"),
-                                ),
-                              );
+                            const update = isLocalPlaylistId(decodedId)
+                              ? updateLocalPlaylist(decodedId, { description: next })
+                              : api.updatePlaylist(decodedId, { description: next });
+                            void update.then(() =>
+                              window.dispatchEvent(new Event("library:changed")),
+                            );
                           }
                           setIsEditingDescription(false);
                         }}
@@ -849,12 +851,14 @@ function LibraryPlaylistContent() {
                               label: t("common.edit_description"),
                               onClick: () => setIsEditingDescription(true),
                             },
-                            {
-                              id: "share",
-                              icon: <ShareForwardLine size={15} />,
-                              label: t("common.share"),
-                              onClick: handleShare,
-                            },
+                            ...(decodedId && !isLocalPlaylistId(decodedId)
+                              ? [{
+                                  id: "share",
+                                  icon: <ShareForwardLine size={15} />,
+                                  label: t("common.share"),
+                                  onClick: handleShare,
+                                }]
+                              : []),
                             {
                               id: "delete",
                               icon: <LuTrash2 size={15} />,
