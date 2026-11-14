@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import AppFrame from "@/features/navigation/ui/AppFrame";
-import { setAuthSession } from "@/shared/api";
 import { useAuthStore } from "../store/authStore";
 
 export function AuthLock({ children }: { children: React.ReactNode }) {
+  const initialize = useAuthStore((state) => state.initialize);
+
   useEffect(() => {
-    // This build runs as a local-first desktop player. Clear only the Liner
-    // account session; YouTube's separate device authorization is unaffected.
-    setAuthSession(null);
-    useAuthStore.setState({ status: "anonymous", user: null });
-  }, []);
+    // Authentication is optional in this local-first build. Keep an existing
+    // session intact, but never block the application when no session exists.
+    void initialize();
+  }, [initialize]);
 
   return <AppFrame>{children}</AppFrame>;
 }
