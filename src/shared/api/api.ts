@@ -1295,13 +1295,17 @@ export const api = {
     let buffer = "";
 
     const flushEvent = (): LyricsStreamEvent | null => {
-      const sep = buffer.indexOf("\n\n");
-      if (sep === -1) return null;
+      // SSE permits LF and CRLF framing. Some lyric providers/proxies emit
+      // CRLF; looking only for "\\n\\n" silently drops every event on those
+      // responses (the player then stays in the "loading" state forever).
+      const separator = /\\r?\\n\\r?\\n/.exec(buffer);
+      if (!separator || separator.index === undefined) return null;
+      const sep = separator.index;
       const rawEvent = buffer.slice(0, sep);
-      buffer = buffer.slice(sep + 2);
+      buffer = buffer.slice(sep + separator[0].length);
 
       const dataLines: string[] = [];
-      for (const line of rawEvent.split("\n")) {
+      for (const line of rawEvent.split(/\\r?\\n/)) {
         if (line.startsWith("data:")) {
           dataLines.push(line.slice(5).trim());
         }
