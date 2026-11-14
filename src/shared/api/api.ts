@@ -74,7 +74,7 @@ import {
 
 const CLIENT_VERSION =
   (import.meta.env.VITE_CLIENT_VERSION as string | undefined) ||
-  "1.0.4-desktop";
+  (__LINER_TARGET__ === "android" ? "1.0.4-android" : "1.0.4-desktop");
 
 const DEFAULT_TIMEOUT_MS = 15000;
 const LYRICS_CONNECT_TIMEOUT_MS = 12000;
@@ -150,8 +150,10 @@ async function fetchWithTimeout(
 }
 
 function getPlatform(): string {
+  if (__LINER_TARGET__ === "android") return "android";
   if (typeof navigator === "undefined") return "desktop";
   const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("android")) return "android";
   if (ua.includes("win")) return "windows";
   if (ua.includes("mac")) return "macos";
   if (ua.includes("linux")) return "linux";
