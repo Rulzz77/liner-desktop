@@ -29,8 +29,10 @@ async function loadRoot(): Promise<React.ReactElement> {
     hydrateScreenCache(),
   ]);
 
-  // Electron-only services must not execute inside the Android WebView.
-  if (!isAndroidTarget) {
+  if (isAndroidTarget) {
+    const { initAndroidServices } = await import("./app/androidServices");
+    initAndroidServices();
+  } else {
     const { initMainWindowServices } = await import("./app/mainWindowServices");
     initMainWindowServices();
   }
