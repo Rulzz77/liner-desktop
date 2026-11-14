@@ -119,7 +119,11 @@ const SERVER_SNAPSHOT = {
 };
 
 function localSummary(playlist: LocalPlaylistRecord): LibraryPlaylistSummary {
-  const coverUrls = [...new Set(playlist.tracks.map((track) => track.coverUrl).filter(Boolean))].slice(0, 4);
+  const coverUrls = [
+    ...new Set(
+      playlist.tracks.map((track) => track.coverUrl).filter(Boolean),
+    ),
+  ].slice(0, 4);
   return {
     id: playlist.id,
     title: playlist.title,
@@ -138,7 +142,10 @@ function localDetail(playlist: LocalPlaylistRecord): LibraryPlaylistDetail {
   return {
     ...summary,
     tracks: playlist.tracks,
-    durationMs: playlist.tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0),
+    durationMs: playlist.tracks.reduce(
+      (sum, track) => sum + (track.durationMs || 0),
+      0,
+    ),
   };
 }
 
@@ -163,22 +170,49 @@ function load(force = false): Promise<void> {
         serverItems = await Promise.all(
           response.items.map(async (playlist) => {
             if (playlist.trackCount !== undefined && playlist.coverUrls) {
-              const coverUrls = playlist.coverUrls.map((url) => mediaUrl(url)).filter(Boolean);
-              coverCache[playlist.id] = { coverUrls, trackCount: playlist.trackCount, updatedAt: playlist.updatedAt };
-              return { ...playlist, trackCount: playlist.trackCount, coverUrl: coverUrls[0] ?? "", coverUrls };
+              const coverUrls = playlist.coverUrls
+                .map((url) => mediaUrl(url))
+                .filter(Boolean);
+              coverCache[playlist.id] = {
+                coverUrls,
+                trackCount: playlist.trackCount,
+                updatedAt: playlist.updatedAt,
+              };
+              return {
+                ...playlist,
+                trackCount: playlist.trackCount,
+                coverUrl: coverUrls[0] ?? "",
+                coverUrls,
+              };
             }
             const cached = coverCache[playlist.id];
             if (cached && cached.updatedAt === playlist.updatedAt) {
-              return { ...playlist, trackCount: cached.trackCount, coverUrl: cached.coverUrls[0] ?? "", coverUrls: cached.coverUrls };
+              return {
+                ...playlist,
+                trackCount: cached.trackCount,
+                coverUrl: cached.coverUrls[0] ?? "",
+                coverUrls: cached.coverUrls,
+              };
             }
             const detail = await api.getUserPlaylist(playlist.id);
             const covers = extractCovers(detail.items);
-            coverCache[playlist.id] = { coverUrls: covers, trackCount: detail.items.length, updatedAt: playlist.updatedAt };
-            return { ...playlist, trackCount: detail.items.length, coverUrl: covers[0] ?? "", coverUrls: covers };
+            coverCache[playlist.id] = {
+              coverUrls: covers,
+              trackCount: detail.items.length,
+              updatedAt: playlist.updatedAt,
+            };
+            return {
+              ...playlist,
+              trackCount: detail.items.length,
+              coverUrl: covers[0] ?? "",
+              coverUrls: covers,
+            };
           }),
         );
         const liveIds = new Set(response.items.map((item) => item.id));
-        for (const id of Object.keys(coverCache)) if (!liveIds.has(id)) delete coverCache[id];
+        for (const id of Object.keys(coverCache)) {
+          if (!liveIds.has(id)) delete coverCache[id];
+        }
         writeCoverCache(coverCache);
       } catch (err) {
         failure = err;
@@ -186,7 +220,12 @@ function load(force = false): Promise<void> {
     }
 
     const merged = [...localItems, ...serverItems];
-    cache = { playlists: merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), total: merged.length };
+    cache = {
+      playlists: merged.sort((a, b) =>
+        b.updatedAt.localeCompare(a.updatedAt),
+      ),
+      total: merged.length,
+    };
     loaded = true;
   })()
     .catch((err) => {
