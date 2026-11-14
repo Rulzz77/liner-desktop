@@ -1,0 +1,86 @@
+name: Guest branch final validation
+
+on:
+  push:
+    branches: [guest-local-playlists]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Format, lint, build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify build assets
+        run: node scripts/verify-build-assets.mjs
+
+      - name: Format modified and pre-existing CI files
+        run: |
+          pnpm exec prettier --write \
+            index.html \
+            src/app/routes.tsx \
+            src/features/auth/ui/AuthLock.tsx \
+            src/features/library/hooks/useExternalItems.ts \
+            src/features/library/hooks/useExternalItems.test.tsx \
+            src/features/library/hooks/useLibraryMutations.ts \
+            src/features/library/hooks/usePlaylists.ts \
+            src/features/library/services/import/manager/clientImport.test.ts \
+            src/features/library/services/import/manager/finalizeImport.ts \
+            src/features/library/services/localPlaylists.ts \
+            src/features/library/ui/PlaylistPage.tsx \
+            src/features/library/ui/modals/AddToPlaylistModal.tsx \
+            src/features/library/ui/modals/CreatePlaylistModal.tsx \
+            src/features/lyrics/lyricsProviderSwitch.test.ts \
+            src/shared/api/track.test.ts \
+            src/shared/youtube/innertube/innertubeChannelUploads.test.ts \
+            src/shared/youtube/innertube/innertubeChannelUploads.ts \
+            src/widgets/sidebar/ui/Sidebar.tsx
+
+      - name: Commit formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            index.html \
+            src/app/routes.tsx \
+            src/features/auth/ui/AuthLock.tsx \
+            src/features/library/hooks/useExternalItems.ts \
+            src/features/library/hooks/useExternalItems.test.tsx \
+            src/features/library/hooks/useLibraryMutations.ts \
+            src/features/library/hooks/usePlaylists.ts \
+            src/features/library/services/import/manager/clientImport.test.ts \
+            src/features/library/services/import/manager/finalizeImport.ts \
+            src/features/library/services/localPlaylists.ts \
+            src/features/library/ui/PlaylistPage.tsx \
+            src/features/library/ui/modals/AddToPlaylistModal.tsx \
+            src/features/library/ui/modals/CreatePlaylistModal.tsx \
+            src/features/lyrics/lyricsProviderSwitch.test.ts \
+            src/shared/api/track.test.ts \
+            src/shared/youtube/innertube/innertubeChannelUploads.test.ts \
+            src/shared/youtube/innertube/innertubeChannelUploads.ts \
+            src/widgets/sidebar/ui/Sidebar.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "Format guest mode changes and CI baseline"
+            git push origin HEAD:guest-local-playlists
+          fi
+
+      - name: Full project check
+        run: pnpm check
