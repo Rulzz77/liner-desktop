@@ -730,7 +730,7 @@ export default function AppFrame({ children }: AppFrameProps) {
   return (
     <div
       ref={appFrameRef}
-      className={`app-shell-enter relative flex flex-col h-full w-full overflow-hidden p-1.5 gap-1.5 ${
+      data-app-frame\n      className={`app-shell-enter relative flex flex-col h-full w-full overflow-hidden p-1.5 gap-1.5 ${
         isFullscreenPlayer ? "bg-black" : "bg-bg-canvas"
       } ${isEdgeToEdge ? "rounded-none" : "rounded-item"}`}
       style={isEdgeToEdge ? undefined : { clipPath: "inset(0 round 12px)" }}
@@ -749,7 +749,7 @@ export default function AppFrame({ children }: AppFrameProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="absolute left-[64px] right-1.5 top-1.5 z-[45]"
+            data-app-header\n            className="absolute left-[64px] right-1.5 top-1.5 z-[45]"
           >
             <Header
               searchOpen={searchOpen}
@@ -761,7 +761,7 @@ export default function AppFrame({ children }: AppFrameProps) {
 
       <div
         className={cn(
-          "flex-1 min-h-0 flex flex-row w-full gap-1.5 overflow-hidden relative z-10",
+          "flex-1 min-h-0 flex flex-row w-full gap-1.5 overflow-hidden relative z-10",\n          "app-content-row",
           fullscreenPlayerOpen && fullscreenEffectsReady && "invisible",
         )}
       >
@@ -832,7 +832,7 @@ export default function AppFrame({ children }: AppFrameProps) {
               ref={miniPlayerContainerRef}
               // Above the right drawer (z-50) so the player's volume/speed/queue
               // popups, which live in this stacking context, aren't hidden by it.
-              className={`relative z-[55] w-full shrink-0 ${hasPageBackdrop ? "-mt-[70px]" : ""}`}
+              data-mini-player\n              className={`relative z-[55] w-full shrink-0 ${hasPageBackdrop ? "-mt-[70px]" : ""}`}
             >
               <MiniPlayer
                 embedded
