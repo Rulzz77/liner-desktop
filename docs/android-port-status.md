@@ -39,8 +39,8 @@ The APK is expected at `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 This is an Android build scaffold, not a completed native port yet.
 
-The current client deliberately obtains request signatures from the Electron main process. The browser request signer returns no signature when `window.linerElectron` is absent. Therefore online catalog, import matching, and other protected official-service requests are not expected to work in this Android shell until the service owner supplies or approves an Android signing integration.
+The Android target now loads the same bundled Liner WASM request signer used by the Electron app and uses Capacitor's native HTTP transport for fetch/XHR to avoid WebView CORS preflight failures. The request signer does not fall back to unsigned API requests in Android builds.
 
-Other Electron IPC features also need native replacements, notably YouTube PoToken/session handling, saved/local track file access, secure auth/session storage, system media controls, and background playback. A Capacitor APK can be built after the Android project is generated, but it must not be presented as feature-complete until those bridges are implemented and tested on-device.
+This change has not yet been built and tested on a physical device. If online requests still fail, inspect Android WebView console/Logcat for the HTTP status and request ID; the server may also need to allow the Android client in its edge/origin policy. Do not bypass or disable server-side signing, authentication, edge-key, or rate-limit controls.
 
-Do not weaken or bypass the official service's request signing, authentication, edge-key, or rate-limit controls to make the Android build appear functional. Coordinate an approved Android integration with the service owner.
+Other Electron IPC features still need native replacements, notably YouTube PoToken/session handling, saved/local track file access, secure auth/session storage, system media controls, and background playback. A successful APK build is not the same as a feature-complete Android port.
