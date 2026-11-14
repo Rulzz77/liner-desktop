@@ -183,9 +183,9 @@ describe("finalizeImportedPlaylist", () => {
     ]);
 
     expect(result.saved).toBe(1);
-    expect((await listLocalPlaylists()).map((playlist) => playlist.title)).toContain(
-      "Offline mix",
-    );
+    expect(
+      (await listLocalPlaylists()).map((playlist) => playlist.title),
+    ).toContain("Offline mix");
     expect(createServerPlaylist).not.toHaveBeenCalled();
   });
 });
