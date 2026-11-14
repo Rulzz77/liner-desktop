@@ -688,8 +688,12 @@ function LibraryPlaylistContent() {
                             e.currentTarget.textContent?.trim() ?? "";
                           if (decodedId && next !== viewData.bio) {
                             const update = isLocalPlaylistId(decodedId)
-                              ? updateLocalPlaylist(decodedId, { description: next })
-                              : api.updatePlaylist(decodedId, { description: next });
+                              ? updateLocalPlaylist(decodedId, {
+                                  description: next,
+                                })
+                              : api.updatePlaylist(decodedId, {
+                                  description: next,
+                                });
                             void update.then(() =>
                               window.dispatchEvent(new Event("library:changed")),
                             );
@@ -852,12 +856,14 @@ function LibraryPlaylistContent() {
                               onClick: () => setIsEditingDescription(true),
                             },
                             ...(decodedId && !isLocalPlaylistId(decodedId)
-                              ? [{
-                                  id: "share",
-                                  icon: <ShareForwardLine size={15} />,
-                                  label: t("common.share"),
-                                  onClick: handleShare,
-                                }]
+                              ? [
+                                  {
+                                    id: "share",
+                                    icon: <ShareForwardLine size={15} />,
+                                    label: t("common.share"),
+                                    onClick: handleShare,
+                                  },
+                                ]
                               : []),
                             {
                               id: "delete",
