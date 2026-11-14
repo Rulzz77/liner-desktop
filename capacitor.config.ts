@@ -7,6 +7,13 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
   },
+  plugins: {
+    // Use Android's native HTTP stack for fetch/XHR to avoid WebView CORS
+    // preflight failures while preserving the request headers/signatures.
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
 };
 
 export default config;
