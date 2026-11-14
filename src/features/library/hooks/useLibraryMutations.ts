@@ -90,7 +90,9 @@ export function useReorderPlaylistTracks() {
     }) =>
       isLocalPlaylistId(playlistId)
         ? moveLocalPlaylistTrack(playlistId, itemId, beforeItemId)
-        : api.movePlaylistItem(playlistId, itemId, beforeItemId, revision),
+        : api
+            .movePlaylistItem(playlistId, itemId, beforeItemId, revision)
+            .then(() => undefined),
   );
 }
 
