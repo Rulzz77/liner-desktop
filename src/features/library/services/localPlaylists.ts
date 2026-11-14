@@ -15,11 +15,19 @@ const STORAGE_KEY = "liner:local-playlists:v1";
 const PREFIX = "local-playlist:";
 
 function makeId(): string {
-  return `${PREFIX}${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+  const id =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${PREFIX}${id}`;
 }
 
 function makeItemId(): string {
-  return `local-playlist-item:${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+  const id =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `local-playlist-item:${id}`;
 }
 
 export function isLocalPlaylistId(id: string | null | undefined): boolean {
@@ -58,7 +66,7 @@ function openPlaylistDb(): Promise<IDBDatabase> {
     return Promise.reject(new Error("IndexedDB is unavailable"));
   }
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -76,7 +84,9 @@ function openPlaylistDb(): Promise<IDBDatabase> {
     };
     request.onerror = () => {
       dbPromise = null;
-      reject(request.error ?? new Error("Could not open local playlist database"));
+      reject(
+        request.error ?? new Error("Could not open local playlist database"),
+      );
     };
     request.onblocked = () => {
       dbPromise = null;
@@ -89,12 +99,15 @@ function openPlaylistDb(): Promise<IDBDatabase> {
 async function readAll(): Promise<LocalPlaylistRecord[]> {
   try {
     const db = await openPlaylistDb();
-    const records = await new Promise<LocalPlaylistRecord[]>((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const request = tx.objectStore(STORE_NAME).getAll();
-      request.onsuccess = () => resolve(request.result as LocalPlaylistRecord[]);
-      request.onerror = () => reject(request.error);
-    });
+    const records = await new Promise<LocalPlaylistRecord[]>(
+      (resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const request = tx.objectStore(STORE_NAME).getAll();
+        request.onsuccess = () =>
+          resolve(request.result as LocalPlaylistRecord[]);
+        request.onerror = () => reject(request.error);
+      },
+    );
     if (records.length > 0) return records;
     // One-time migration from the early localStorage implementation.
     const legacy = readFallback();
@@ -122,7 +135,8 @@ async function writeAll(playlists: LocalPlaylistRecord[]): Promise<void> {
       for (const playlist of playlists) store.put(playlist);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error("Playlist save was aborted"));
+      tx.onabort = () =>
+        reject(tx.error ?? new Error("Playlist save was aborted"));
     });
     try {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -183,8 +197,7 @@ export function toLocalTrack(input: Track | ContractTrack): Track {
       : {}),
     ...(artistList?.length ? { artistList } : {}),
     coverUrl,
-    durationMs:
-      typeof source.durationMs === "number" ? source.durationMs : 0,
+    durationMs: typeof source.durationMs === "number" ? source.durationMs : 0,
     playCount: typeof source.playCount === "number" ? source.playCount : 0,
     ...(typeof source.explicit === "boolean"
       ? { explicit: source.explicit }
@@ -206,7 +219,9 @@ export function toLocalTrack(input: Track | ContractTrack): Track {
 }
 
 export async function listLocalPlaylists(): Promise<LocalPlaylistRecord[]> {
-  return (await readAll()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return (await readAll()).sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  );
 }
 
 export async function getLocalPlaylist(
