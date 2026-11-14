@@ -1,0 +1,66 @@
+name: Guest branch validation
+
+on:
+  push:
+    branches: [guest-local-playlists]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Format, lint, build and tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify build assets
+        run: node scripts/verify-build-assets.mjs
+
+      - name: Format changed guest-mode files
+        run: |
+          pnpm exec prettier --write \
+            src/features/auth/ui/AuthLock.tsx \
+            src/features/library/hooks/useExternalItems.ts \
+            src/features/library/hooks/usePlaylists.ts \
+            src/features/library/services/localPlaylists.ts \
+            src/features/library/ui/PlaylistPage.tsx
+
+      - name: Commit formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/features/auth/ui/AuthLock.tsx \
+            src/features/library/hooks/useExternalItems.ts \
+            src/features/library/hooks/usePlaylists.ts \
+            src/features/library/services/localPlaylists.ts \
+            src/features/library/ui/PlaylistPage.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m "Format local guest-mode implementation"
+            git push origin HEAD:guest-local-playlists
+          fi
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: TypeScript and Vite build
+        run: pnpm build
+
+      - name: Tests
+        run: pnpm test
