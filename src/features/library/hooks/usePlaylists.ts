@@ -9,6 +9,12 @@ import {
 } from "@/shared/api";
 import { queryCache } from "@/shared/cache/queryCache";
 import type { Track } from "@/shared/types";
+import {
+  getLocalPlaylist,
+  isLocalPlaylistId,
+  listLocalPlaylists,
+  type LocalPlaylistRecord,
+} from "../services/localPlaylists";
 
 export interface LibraryPlaylistSummary {
   id: string;
@@ -112,82 +118,78 @@ const SERVER_SNAPSHOT = {
   isLoading: true,
 };
 
+function localSummary(playlist: LocalPlaylistRecord): LibraryPlaylistSummary {
+  const coverUrls = [...new Set(playlist.tracks.map((track) => track.coverUrl).filter(Boolean))].slice(0, 4);
+  return {
+    id: playlist.id,
+    title: playlist.title,
+    description: playlist.description,
+    trackCount: playlist.tracks.length,
+    coverUrl: coverUrls[0] ?? "",
+    coverUrls,
+    updatedAt: playlist.updatedAt,
+    createdAt: playlist.createdAt,
+    revision: playlist.revision,
+  };
+}
+
+function localDetail(playlist: LocalPlaylistRecord): LibraryPlaylistDetail {
+  const summary = localSummary(playlist);
+  return {
+    ...summary,
+    tracks: playlist.tracks,
+    durationMs: playlist.tracks.reduce((sum, track) => sum + (track.durationMs || 0), 0),
+  };
+}
+
 function load(force = false): Promise<void> {
   if (request) return request;
-  const session = getAuthSession();
-  if (!session?.accessToken) {
-    cache = EMPTY;
-    loaded = false;
-    emit();
-    return Promise.resolve();
-  }
   if (loaded && !force) return Promise.resolve();
-
   if (!loaded) emit(undefined, true);
 
   let failure: unknown;
   request = (async () => {
-    const coverCache = readCoverCache();
-    const response = await api.listPlaylists();
+    const localRecords = await listLocalPlaylists();
+    const localItems = localRecords.map(localSummary);
+    let serverItems: LibraryPlaylistSummary[] = [];
+    const session = getAuthSession();
 
-    const playlists = await Promise.all(
-      response.items.map(async (playlist) => {
-        if (playlist.trackCount !== undefined && playlist.coverUrls) {
-          const coverUrls = playlist.coverUrls
-            .map((url) => mediaUrl(url))
-            .filter(Boolean);
-          coverCache[playlist.id] = {
-            coverUrls,
-            trackCount: playlist.trackCount,
-            updatedAt: playlist.updatedAt,
-          };
-          return {
-            ...playlist,
-            trackCount: playlist.trackCount,
-            coverUrl: coverUrls[0] ?? "",
-            coverUrls,
-          };
-        }
-
-        const cached = coverCache[playlist.id];
-
-        if (cached && cached.updatedAt === playlist.updatedAt) {
-          return {
-            ...playlist,
-            trackCount: cached.trackCount,
-            coverUrl: cached.coverUrls[0] ?? "",
-            coverUrls: cached.coverUrls,
-          };
-        }
-
-        const detail = await api.getUserPlaylist(playlist.id);
-        const covers = extractCovers(detail.items);
-        const entry: CoverCacheEntry = {
-          coverUrls: covers,
-          trackCount: detail.items.length,
-          updatedAt: playlist.updatedAt,
-        };
-        coverCache[playlist.id] = entry;
-        return {
-          ...playlist,
-          trackCount: detail.items.length,
-          coverUrl: covers[0] ?? "",
-          coverUrls: covers,
-        };
-      }),
-    );
-
-    const liveIds = new Set(response.items.map((p) => p.id));
-    for (const id of Object.keys(coverCache)) {
-      if (!liveIds.has(id)) delete coverCache[id];
+    // Server-owned playlists remain available for users who already have a
+    // Liner session. Guest playlists are always loaded from this device.
+    if (session?.accessToken) {
+      try {
+        const coverCache = readCoverCache();
+        const response = await api.listPlaylists();
+        serverItems = await Promise.all(
+          response.items.map(async (playlist) => {
+            if (playlist.trackCount !== undefined && playlist.coverUrls) {
+              const coverUrls = playlist.coverUrls.map((url) => mediaUrl(url)).filter(Boolean);
+              coverCache[playlist.id] = { coverUrls, trackCount: playlist.trackCount, updatedAt: playlist.updatedAt };
+              return { ...playlist, trackCount: playlist.trackCount, coverUrl: coverUrls[0] ?? "", coverUrls };
+            }
+            const cached = coverCache[playlist.id];
+            if (cached && cached.updatedAt === playlist.updatedAt) {
+              return { ...playlist, trackCount: cached.trackCount, coverUrl: cached.coverUrls[0] ?? "", coverUrls: cached.coverUrls };
+            }
+            const detail = await api.getUserPlaylist(playlist.id);
+            const covers = extractCovers(detail.items);
+            coverCache[playlist.id] = { coverUrls: covers, trackCount: detail.items.length, updatedAt: playlist.updatedAt };
+            return { ...playlist, trackCount: detail.items.length, coverUrl: covers[0] ?? "", coverUrls: covers };
+          }),
+        );
+        const liveIds = new Set(response.items.map((item) => item.id));
+        for (const id of Object.keys(coverCache)) if (!liveIds.has(id)) delete coverCache[id];
+        writeCoverCache(coverCache);
+      } catch (err) {
+        failure = err;
+      }
     }
-    writeCoverCache(coverCache);
 
-    cache = { playlists, total: playlists.length };
+    const merged = [...localItems, ...serverItems];
+    cache = { playlists: merged.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), total: merged.length };
     loaded = true;
   })()
     .catch((err) => {
-      if (!loaded) cache = EMPTY;
       loaded = true;
       failure = err;
     })
@@ -200,14 +202,8 @@ function load(force = false): Promise<void> {
 
 if (typeof window !== "undefined") {
   const handleRefresh = () => {
-    const session = getAuthSession();
-    if (!session?.accessToken) {
-      cache = EMPTY;
-      loaded = false;
-      emit();
-    } else {
-      void load(true);
-    }
+    loaded = false;
+    void load(true);
   };
   window.addEventListener("library:changed", handleRefresh);
   window.addEventListener("auth:changed", handleRefresh);
@@ -286,6 +282,31 @@ export function usePlaylist(id: string | null) {
       setData(null);
       setIsLoading(false);
       return;
+    }
+
+    if (isLocalPlaylistId(id)) {
+      let active = true;
+      setIsLoading(true);
+      const loadLocal = async () => {
+        try {
+          const playlist = await getLocalPlaylist(id);
+          if (active) {
+            setData(playlist ? localDetail(playlist) : null);
+            setError(playlist ? undefined : new Error("Playlist not found."));
+          }
+        } catch (err) {
+          if (active) setError(err);
+        } finally {
+          if (active) setIsLoading(false);
+        }
+      };
+      void loadLocal();
+      const refreshLocal = () => void loadLocal();
+      window.addEventListener("library:changed", refreshLocal);
+      return () => {
+        active = false;
+        window.removeEventListener("library:changed", refreshLocal);
+      };
     }
 
     const initial = queryCache.get<LibraryPlaylistDetail>(cacheKey);
