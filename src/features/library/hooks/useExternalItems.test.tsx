@@ -11,7 +11,11 @@ vi.mock("@/shared/api", () => ({
   api: { listSavedCollections: vi.fn() },
   mediaUrl: (url: string) => url,
   toMaxQualityAvatarUrl: (url: string) => url,
-  getAuthSession: () => null,
+  getAuthSession: authMocks.getAuthSession,
+}));
+
+const authMocks = vi.hoisted(() => ({
+  getAuthSession: vi.fn(),
 }));
 
 const artistsResponse = {
@@ -35,6 +39,10 @@ describe("useExternalItems", () => {
   let root: Root;
 
   beforeEach(() => {
+    authMocks.getAuthSession.mockReturnValue({
+      accessToken: "test-token",
+      user: { id: "u1" },
+    });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -67,5 +75,18 @@ describe("useExternalItems", () => {
     });
     expect(latest?.isLoading).toBe(false);
     expect(latest?.data.map((item) => item.title)).toEqual(["SZA"]);
+  });
+
+  it("does not request cloud collections when no Liner session exists", async () => {
+    authMocks.getAuthSession.mockReturnValue(null);
+    vi.mocked(api.listSavedCollections).mockClear();
+
+    await act(async () => {
+      root.render(<Probe />);
+    });
+
+    expect(api.listSavedCollections).not.toHaveBeenCalled();
+    expect(latest?.isLoading).toBe(false);
+    expect(latest?.data).toEqual([]);
   });
 });
