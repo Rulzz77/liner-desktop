@@ -1,0 +1,38 @@
+name: Temporary format preview
+
+on:
+  pull_request:
+    types: [synchronize, opened, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Format modified files and print formatted source
+        run: |
+          pnpm exec prettier --write \
+            src/features/library/hooks/useExternalItems.ts \
+            src/features/library/hooks/usePlaylists.ts \
+            src/features/library/services/localPlaylists.ts \
+            src/features/library/ui/PlaylistPage.tsx
+          for file in \
+            src/features/library/hooks/useExternalItems.ts \
+            src/features/library/hooks/usePlaylists.ts \
+            src/features/library/services/localPlaylists.ts \
+            src/features/library/ui/PlaylistPage.tsx; do
+            echo "===== BEGIN $file ====="
+            cat "$file"
+            echo "===== END $file ====="
+          done
