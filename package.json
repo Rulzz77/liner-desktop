@@ -28,9 +28,9 @@
     "electron:build:win": "pnpm native:build && tsc -b && vite build && electron-builder --win",
     "electron:build:mac": "tsc -b && vite build && electron-builder --mac",
     "native:build": "node scripts/build-native-addon.cjs",
-    "android:build": "vite build --mode android",
+    "android:build": "tsc -b && vite build --mode android",
     "android:add": "cap add android",
-    "android:sync": "vite build --mode android && cap sync android",
+    "android:sync": "tsc -b && vite build --mode android && cap sync android",
     "android:open": "cap open android",
     "android:run": "cap run android"
   },
