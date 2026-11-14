@@ -271,8 +271,8 @@ export async function updateLocalPlaylist(
 }
 
 export async function deleteLocalPlaylist(id: string): Promise<void> {
-  const playlists = readAll();
-  writeAll(playlists.filter((playlist) => playlist.id !== id));
+  const playlists = await readAll();
+  await writeAll(playlists.filter((playlist) => playlist.id !== id));
   emitChanged();
 }
 
@@ -280,7 +280,7 @@ export async function addLocalPlaylistTrack(
   playlistId: string,
   input: Track | ContractTrack,
 ): Promise<LocalPlaylistRecord> {
-  const playlists = readAll();
+  const playlists = await readAll();
   const index = playlists.findIndex((playlist) => playlist.id === playlistId);
   if (index < 0) throw new Error("Local playlist not found.");
   const track = toLocalTrack(input);
@@ -301,7 +301,7 @@ export async function addLocalPlaylistTrack(
     revision: current.revision + 1,
   };
   playlists[index] = next;
-  writeAll(playlists);
+  await writeAll(playlists);
   emitChanged();
   return next;
 }
@@ -310,7 +310,7 @@ export async function removeLocalPlaylistTrack(
   playlistId: string,
   itemId: string,
 ): Promise<void> {
-  const playlists = readAll();
+  const playlists = await readAll();
   const index = playlists.findIndex((playlist) => playlist.id === playlistId);
   if (index < 0) throw new Error("Local playlist not found.");
   const current = playlists[index];
@@ -323,7 +323,7 @@ export async function removeLocalPlaylistTrack(
     revision: current.revision + 1,
   };
   playlists[index] = next;
-  writeAll(playlists);
+  await writeAll(playlists);
   emitChanged();
 }
 
@@ -332,7 +332,7 @@ export async function moveLocalPlaylistTrack(
   itemId: string,
   beforeItemId: string | null,
 ): Promise<void> {
-  const playlists = readAll();
+  const playlists = await readAll();
   const index = playlists.findIndex((playlist) => playlist.id === playlistId);
   if (index < 0) throw new Error("Local playlist not found.");
   const current = playlists[index];
@@ -351,6 +351,6 @@ export async function moveLocalPlaylistTrack(
     updatedAt: new Date().toISOString(),
     revision: current.revision + 1,
   };
-  writeAll(playlists);
+  await writeAll(playlists);
   emitChanged();
 }
