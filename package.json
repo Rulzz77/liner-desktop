@@ -17,7 +17,7 @@
     "lint:fix": "oxlint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm lint && pnpm exec prettier --write src/features/library/hooks/useExternalItems.ts src/features/library/hooks/usePlaylists.ts src/features/library/services/localPlaylists.ts src/features/library/ui/PlaylistPage.tsx && git diff -- src/features/library/hooks/useExternalItems.ts src/features/library/hooks/usePlaylists.ts src/features/library/services/localPlaylists.ts src/features/library/ui/PlaylistPage.tsx && pnpm build && pnpm test",
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test",
     "bundle:publish": "pnpm --dir ../updater bundle:publish",
     "signer:build": "node ../signer/scripts/build-wasm.mjs",
     "preview": "vite preview",
