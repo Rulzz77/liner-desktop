@@ -53,9 +53,28 @@ function DiscordSync() {
   return null;
 }
 
-export default function App() {
+function DesktopWindowDrag() {
   useWindowDrag();
+  return null;
+}
 
+function DesktopIntegrations() {
+  if (typeof window === "undefined" || !window.linerElectron) return null;
+
+  return (
+    <>
+      <DesktopWindowDrag />
+      <ThemeSync />
+      <AppIconSync />
+      <PresenceSync />
+      <TouchBarSync />
+      <OverlaySync />
+      <DiscordSync />
+    </>
+  );
+}
+
+export default function App() {
   return (
     <HashRouter>
       <CoverSwRegistrar />
@@ -66,12 +85,7 @@ export default function App() {
         disableTransitionOnChange
       >
         <GlobalTooltip />
-        <ThemeSync />
-        <AppIconSync />
-        <PresenceSync />
-        <TouchBarSync />
-        <OverlaySync />
-        <DiscordSync />
+        <DesktopIntegrations />
         <AppleEmojiProvider>
           <I18nProvider>
             <ToastProvider>
