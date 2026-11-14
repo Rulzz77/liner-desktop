@@ -19,9 +19,19 @@ describe("Android browser request signer", () => {
     expect(result.nonce).toMatch(/^[a-f0-9]{16}$/);
   });
 
-  it("normalizes method and excludes query from the signed path", async () => {
-    const first = await signRequestInBrowser("get", "/v1/me?one=1", "", 1_800_000_000);
-    const second = await signRequestInBrowser("GET", "/v1/me?two=2", "", 1_800_000_000);
+  it("uses a fresh nonce for each request", async () => {
+    const first = await signRequestInBrowser(
+      "get",
+      "/v1/me?one=1",
+      "",
+      1_800_000_000,
+    );
+    const second = await signRequestInBrowser(
+      "GET",
+      "/v1/me?two=2",
+      "",
+      1_800_000_000,
+    );
 
     // Each request has a fresh nonce, so signatures should differ while both
     // remain valid outputs from the same official signer.
