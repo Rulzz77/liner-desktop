@@ -65,11 +65,8 @@ import {
   type PowSolution,
 } from "./proofOfWork";
 import { solvePow } from "./proofOfWorkRunner";
-import {
-  edgeKeyHeadersForPlatform,
-  refreshEdgeKey,
-  type EdgeKeyAnswer,
-} from "./edgeKey";
+import { refreshEdgeKey, type EdgeKeyAnswer } from "./edgeKey";
+import { edgeKeyHeadersForPlatform } from "./edgeKeyState";
 import {
   isHumanCheckMode,
   runHumanCheck,
@@ -1262,6 +1259,7 @@ export const api = {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           ...correlationHeaders,
           ...signedHeaders,
+          ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
         },
       });
     } catch (fetchErr: any) {
