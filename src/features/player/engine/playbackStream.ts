@@ -37,7 +37,7 @@ export interface BufferedPlaybackStream extends PlaybackStreamFormat {
   completed?: undefined;
   needsFullSource?: undefined;
   release?: undefined;
-  fromLiner?: undefined;
+  fromLiner?: boolean;
 }
 
 export type PlaybackStream = UrlPlaybackStream | BufferedPlaybackStream;
