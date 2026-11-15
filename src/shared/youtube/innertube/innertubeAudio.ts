@@ -13,6 +13,7 @@ export type { ResolvedAudioStream } from "./innertubeAudioFormats";
 
 export {
   ANDROID_VR_PROFILE,
+  ANDROID_PLAYBACK_PROFILES,
   PLAYBACK_PROFILES,
   TV_PROFILE,
   VISIONOS_PROFILE,
@@ -57,7 +58,15 @@ async function resolveViaWebRemix(
       : WEB_REMIX_ATTEMPTS;
   for (let attempt = 0; attempt < webRemixAttempts; attempt += 1) {
     try {
-      const stream = await resolveWebRemixAudioStream(videoId, options);
+      const stream = await resolveWebRemixAudioStream(videoId, {
+        ...options,
+        preferredCodec:
+          options.preferredCodec ??
+          (typeof __LINER_TARGET__ !== "undefined" &&
+          __LINER_TARGET__ === "android"
+            ? "aac"
+            : undefined),
+      });
       await assertStreamReachable(
         stream.url,
         stream.contentLength,
@@ -123,7 +132,10 @@ export async function resolveDirectAudioStream(
     failures.push(`WEB_REMIX paused: ${lastWebRemixError}`);
   }
   for (const profile of orderedProfiles(
-    options.profiles ?? PLAYBACK_PROFILES,
+    options.profiles ??
+      (typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android"
+        ? ANDROID_PLAYBACK_PROFILES
+        : PLAYBACK_PROFILES),
   )) {
     profilesTried += 1;
     try {
