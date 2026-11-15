@@ -1021,7 +1021,9 @@ export class PlayerRuntime {
       log(
         "green",
         "playback",
-        `stream attached: ${streamCodec} ${streamBitrate} bps (${track.title})`,
+        `stream attached: source=${stream.source ?? "unknown"} codec=${streamCodec} ` +
+          `mime=${stream.mimeType || "unknown"} itag=${stream.itag ?? "n/a"} ` +
+          `bitrate=${streamBitrate}bps (${track.title})`,
       );
 
       if (this.audio.readyState < 3) {
