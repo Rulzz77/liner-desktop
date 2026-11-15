@@ -32,7 +32,7 @@ interface BotguardChallenge {
   interpreterScript?: string;
 }
 
-type WebPoMinterInstance = Awaited<typeof WebPoMinter.create>;
+type WebPoMinterInstance = Awaited<ReturnType<typeof WebPoMinter.create>>;
 
 interface MinterEntry {
   minter: WebPoMinterInstance;
