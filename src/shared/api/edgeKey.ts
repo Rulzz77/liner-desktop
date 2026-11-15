@@ -1,4 +1,6 @@
 import { getAuthSession } from "./auth-session";
+import { setHeldEdgeKey } from "./edgeKeyState";
+export { edgeKeyHeadersForPlatform, heldEdgeKey } from "./edgeKeyState";
 
 export interface EdgeKeyAnswer {
   key: string;
@@ -15,10 +17,8 @@ const RETRY_MS = 10 * 60_000;
 let fetcher: FetchEdgeKey | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let inFlight: Promise<boolean> | null = null;
-let held: string | null = null;
-
 function hand(key: string | null): void {
-  held = key;
+  setHeldEdgeKey(key);
   if (typeof window !== "undefined") window.linerElectron?.setEdgeKey?.(key);
 }
 
@@ -57,21 +57,6 @@ export function refreshEdgeKey(): Promise<boolean> {
       inFlight = null;
     });
   return inFlight;
-}
-
-export function heldEdgeKey(): string | null {
-  return held;
-}
-
-/** Edge keys are injected by Electron's request interceptor on desktop.
- * Android uses CapacitorHttp instead, so the renderer must attach the header.
- */
-export function edgeKeyHeadersForPlatform(
-  platform: "android" | "desktop",
-): Record<string, string> {
-  return platform === "android" && held
-    ? { "x-liner-edge": held }
-    : {};
 }
 
 export function initEdgeKey(fetchEdgeKey: FetchEdgeKey): () => void {
