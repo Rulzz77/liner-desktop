@@ -142,9 +142,7 @@ export async function resolveWebRemixAudioStream(
         )
       : [];
   const audioFormats =
-    adaptiveAudioFormats.length > 0
-      ? adaptiveAudioFormats
-      : muxedAudioFormats;
+    adaptiveAudioFormats.length > 0 ? adaptiveAudioFormats : muxedAudioFormats;
   const candidates: AudioFormat[] = audioFormats.map((format) => ({
     itag: format.itag,
     url: "",
