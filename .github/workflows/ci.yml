@@ -37,13 +37,6 @@ jobs:
       - name: Check build icons
         run: node scripts/verify-build-assets.mjs
 
-      - name: Temporary show Prettier output
-        run: |
-          pnpm exec prettier src/shared/youtube/innertube/webRemixAudio.ts | tee /tmp/webRemixAudio.prettier.ts
-          echo "::group::FORMATTED WEB REMIX SOURCE"
-          cat /tmp/webRemixAudio.prettier.ts
-          echo "::endgroup::"
-
       - name: Check
         run: pnpm check
 
