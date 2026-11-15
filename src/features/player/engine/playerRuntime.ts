@@ -265,6 +265,8 @@ export class PlayerRuntime {
     }
   }
 
+  // Android WebView may report an unsupported source through either the media
+  // error event or the play() promise's NotSupportedError rejection.
   private retryUnsupportedMedia(
     track: Track,
     positionMs: number,
