@@ -65,7 +65,11 @@ import {
   type PowSolution,
 } from "./proofOfWork";
 import { solvePow } from "./proofOfWorkRunner";
-import { refreshEdgeKey, type EdgeKeyAnswer } from "./edgeKey";
+import {
+  edgeKeyHeadersForPlatform,
+  refreshEdgeKey,
+  type EdgeKeyAnswer,
+} from "./edgeKey";
 import {
   isHumanCheckMode,
   runHumanCheck,
@@ -323,6 +327,7 @@ async function executeRequest<T>(
           ...correlationHeaders,
           ...signedHeaders,
           ...restHeaders,
+          ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
         },
       },
       timeoutMs,
@@ -400,6 +405,7 @@ async function executeRequest<T>(
             ...correlationHeaders,
             ...restHeaders,
             ...refreshedSignedHeaders,
+            ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
             ...(nextToken ? { Authorization: `Bearer ${nextToken}` } : {}),
           },
         },
