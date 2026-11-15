@@ -1,5 +1,5 @@
 import { BotGuardClient, getChallenge } from "bgutils-js/botguard";
-import { WebPoSignalOutput } from "bgutils-js/shared-types";
+import type { WebPoSignalOutput } from "bgutils-js/shared-types";
 import { buildURL, getHeaders } from "bgutils-js/utils";
 import { WebPoMinter } from "bgutils-js/webpo";
 
@@ -171,7 +171,9 @@ export async function mintBrowserPoToken(identifier: string): Promise<string> {
     try {
       const { minter, expiresAt } = await getMinter();
       const token = await minter.mintAsWebsafeString(identifier);
-      if (!token) throw new Error("YouTube PoToken minting returned an empty token.");
+      if (!token) {
+        throw new Error("YouTube PoToken minting returned an empty token.");
+      }
 
       rememberToken(identifier, { token, expiresAt });
       return token;
