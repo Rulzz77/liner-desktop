@@ -989,12 +989,12 @@ export class PlayerRuntime {
 
       // Android WebView applies CORS to cross-origin <audio> sources. The
       // native CapacitorHttp fetch bridge can download these streams, so play
-      // them from a same-origin Blob URL instead of attaching googlevideo/R2
-      // URLs directly to HTMLAudioElement.
+      // them from a same-origin Blob URL instead of attaching googlevideo URLs
+      // directly to HTMLAudioElement.
       const isAndroidTarget =
         typeof __LINER_TARGET__ !== "undefined" &&
         __LINER_TARGET__ === "android";
-      if (isAndroidTarget && !stream.blob && stream.source !== "local") {
+      if (isAndroidTarget && !stream.blob && stream.source === "youtube") {
         log(
           "cyan",
           "playback",
