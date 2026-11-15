@@ -354,6 +354,48 @@ describe("PlayerRuntime audio caching", () => {
     expect(stored).toBeNull();
   });
 
+  it("tries another format when play() rejects with NotSupportedError", async () => {
+    const playSpy = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockRejectedValueOnce(
+        new DOMException("Source not supported", "NotSupportedError"),
+      )
+      .mockResolvedValue();
+    const resolveSpy = mocks.resolvePlaybackStream
+      .mockResolvedValueOnce({ ...urlStream, itag: 140 })
+      .mockResolvedValue({ ...urlStream, itag: 139 });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        new Uint8Array([
+          0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]),
+        {
+          status: 206,
+          headers: { "content-type": "audio/webm" },
+        },
+      ),
+    );
+
+    const fallbackTrack: Track = {
+      ...track,
+      id: "android-not-supported-rejection",
+      title: "Android Not Supported Rejection",
+    };
+    usePlayerStore.setState({
+      currentTrack: fallbackTrack,
+      positionMs: 0,
+    });
+
+    await playerRuntime!.loadAndPlay(fallbackTrack, 0, true);
+    await vi.waitFor(() => expect(resolveSpy).toHaveBeenCalledTimes(2));
+
+    expect(playSpy).toHaveBeenCalledTimes(2);
+    expect(resolveSpy.mock.calls[1]?.[2]).toMatchObject({
+      excludedItags: [140],
+    });
+    expect(usePlayerStore.getState().status).toBe("playing");
+  });
+
   it("tries a different YouTube itag after the media decoder rejects a stream", async () => {
     const playSpy = vi
       .spyOn(HTMLMediaElement.prototype, "play")
