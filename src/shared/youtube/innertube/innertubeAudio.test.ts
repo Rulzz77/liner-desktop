@@ -116,8 +116,12 @@ describe("audio format selection", () => {
   });
 
   it("returns the next available format when a failed itag is excluded", () => {
-    expect(selectBestAudioFormat([low, aac, opus], "aac", [140])?.itag).toBe(251);
-    expect(selectBestAudioFormat([low, aac, opus], "aac", [140, 251])?.itag).toBe(249);
+    expect(
+      selectBestAudioFormat([low, aac, opus], "aac", [140])?.itag,
+    ).toBe(251);
+    expect(
+      selectBestAudioFormat([low, aac, opus], "aac", [140, 251])?.itag,
+    ).toBe(249);
     expect(selectBestAudioFormat([aac], "aac", [140])).toBeNull();
   });
 
