@@ -391,7 +391,8 @@ export class PlayerRuntime {
       )
         return;
       // the previous track's source is still attached while the next one loads
-      if (this.attachedTrackId !== this.currentTrackId) return;
+      const currentTrackId = this.currentTrackId;
+      if (this.attachedTrackId !== currentTrackId) return;
 
       const message = audioEl.error?.message || "Audio playback error";
       const code = audioEl.error?.code;
@@ -425,15 +426,15 @@ export class PlayerRuntime {
       const failedLinerSource = this.attachedFromLiner;
       if (failedLinerSource) {
         this.attachedFromLiner = false;
-        this.tracksWithFailedLiner.add(this.currentTrackId);
+        this.tracksWithFailedLiner.add(currentTrackId);
         markLinerStreamFailed(`media error ${code}`);
       }
 
       if (this.activeBlobUrl) {
         URL.revokeObjectURL(this.activeBlobUrl);
         this.activeBlobUrl = null;
-        void linerDb.deleteAudio(this.currentTrackId);
-        audioCache.deleteAudio(this.currentTrackId);
+        void linerDb.deleteAudio(currentTrackId);
+        audioCache.deleteAudio(currentTrackId);
       }
 
       const store = usePlayerStore.getState();
@@ -445,7 +446,7 @@ export class PlayerRuntime {
 
       if (
         currentTrack &&
-        currentTrack.id === this.currentTrackId &&
+        currentTrack.id === currentTrackId &&
         isDecode &&
         failedLinerSource
       ) {
@@ -466,7 +467,8 @@ export class PlayerRuntime {
         isDecode &&
         this.activeStreamItag !== null
       ) {
-        const failed = this.failedAudioItags.get(currentTrack.id) ?? new Set<number>();
+        const failed = this.failedAudioItags.get(currentTrack.id) ??
+          new Set<number>();
         failed.add(this.activeStreamItag);
         this.failedAudioItags.set(currentTrack.id, failed);
 
@@ -476,7 +478,8 @@ export class PlayerRuntime {
           log(
             "yellow",
             "playback",
-            `Android/browser rejected audio itag ${this.activeStreamItag}; trying another format (${failed.size}/${MAX_FORMAT_FALLBACKS})`,
+            `Android/browser rejected audio itag ${this.activeStreamItag}; ` +
+              `trying another format (${failed.size}/${MAX_FORMAT_FALLBACKS})`,
           );
           void this.loadAndPlay(currentTrack, posMs, true);
           return;
@@ -502,7 +505,7 @@ export class PlayerRuntime {
       }
 
       usePlayerStore.getState().setStatus("error", message);
-      this.onError?.({ trackId: this.currentTrackId, message });
+      this.onError?.({ trackId: currentTrackId, message });
     });
   }
 
