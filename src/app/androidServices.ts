@@ -11,5 +11,13 @@ export function initAndroidServices(): void {
 
   initTelemetry();
   initClientVisitorSession();
+
+  // Warm YouTube BotGuard once so first playback does not spend its resolver budget minting a PoToken.
+  void import("@/shared/youtube/innertube/browserPoToken")
+    .then(({ warmBrowserPoToken }) => warmBrowserPoToken())
+    .then(() => console.info("[PoToken] Android WEB minter ready"))
+    .catch((error: unknown) =>
+      console.warn("[PoToken] Android WEB minter warm-up failed:", error),
+    );
   initOfflineMode();
 }
