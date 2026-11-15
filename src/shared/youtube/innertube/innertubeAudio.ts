@@ -51,7 +51,11 @@ async function resolveViaWebRemix(
   options: ResolveAudioOptions,
   failures: string[],
 ): Promise<ResolvedAudioStream | null> {
-  for (let attempt = 0; attempt < WEB_REMIX_ATTEMPTS; attempt += 1) {
+  const webRemixAttempts =
+    typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android"
+      ? 1
+      : WEB_REMIX_ATTEMPTS;
+  for (let attempt = 0; attempt < webRemixAttempts; attempt += 1) {
     try {
       const stream = await resolveWebRemixAudioStream(videoId, options);
       await assertStreamReachable(
