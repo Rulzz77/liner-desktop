@@ -17,6 +17,7 @@ const RETRY_MS = 10 * 60_000;
 let fetcher: FetchEdgeKey | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let inFlight: Promise<boolean> | null = null;
+
 function hand(key: string | null): void {
   setHeldEdgeKey(key);
   if (typeof window !== "undefined") window.linerElectron?.setEdgeKey?.(key);
