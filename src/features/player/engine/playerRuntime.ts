@@ -11,6 +11,7 @@ import { isSavedTrack } from "@/shared/media/saved";
 import { pitchShifter } from "./pitchShifter";
 import { FLAT_EQ, isEqActive } from "./equalizer";
 import { resolvePlaybackStream, type PlaybackStream } from "./streamResolver";
+import { asBufferedPlaybackStream } from "./playbackStream";
 import { logNowPlaying } from "./nowPlayingLog";
 import {
   downloadAudioBytes,
@@ -1060,17 +1061,7 @@ export class PlayerRuntime {
             "Android could not buffer the remote audio stream into a playable file.",
           );
         }
-        stream = {
-          blob: bufferedAudio,
-          source: stream.source,
-          mimeType: bufferedAudio.type || stream.mimeType || "audio/mp4",
-          codec: stream.codec,
-          bitrate: stream.bitrate,
-          contentLength: bufferedAudio.size,
-          expiresAtMs: null,
-          ...(stream.itag !== undefined ? { itag: stream.itag } : {}),
-          ...(stream.fromLiner ? { fromLiner: true } : {}),
-        };
+        stream = asBufferedPlaybackStream(stream, bufferedAudio);
         log(
           "green",
           "playback",
