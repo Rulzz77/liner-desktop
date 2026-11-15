@@ -37,6 +37,13 @@ jobs:
       - name: Check build icons
         run: node scripts/verify-build-assets.mjs
 
+      - name: Temporary inspect Prettier output
+        run: |
+          for file in src/shared/api/edgeKey.ts src/shared/youtube/innertube/webRemixAudio.ts src/shared/youtube/innertube/webRemixAudio.test.ts; do
+            echo "===== PRETTIER OUTPUT: $file ====="
+            pnpm exec prettier "$file"
+          done
+
       - name: Check
         run: pnpm check
 
