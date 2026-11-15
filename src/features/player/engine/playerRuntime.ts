@@ -995,11 +995,7 @@ export class PlayerRuntime {
       const isAndroidTarget =
         typeof __LINER_TARGET__ !== "undefined" &&
         __LINER_TARGET__ === "android";
-      if (
-        isAndroidTarget &&
-        !stream.blob &&
-        stream.source !== "local"
-      ) {
+      if (isAndroidTarget && !stream.blob && stream.source !== "local") {
         log(
           "cyan",
           "playback",
@@ -1045,7 +1041,9 @@ export class PlayerRuntime {
             this.pendingStartPositionMs || startPositionMs,
           );
           this.tracksWithFailedLiner.add(track.id);
-          markLinerStreamFailed("Android buffer did not return a complete audio file");
+          markLinerStreamFailed(
+            "Android buffer did not return a complete audio file",
+          );
           this.recoveryAttempts = 0;
           this.recoveryHoldUntilMs = retryPosition + RECOVERY_HOLD_MS;
           log(
