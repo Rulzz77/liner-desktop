@@ -4,6 +4,7 @@ const session = vi.hoisted(() => ({ current: null as object | null }));
 vi.mock("./auth-session", () => ({ getAuthSession: () => session.current }));
 
 import {
+  edgeKeyHeadersForPlatform,
   heldEdgeKey,
   initEdgeKey,
   nextRefreshDelay,
@@ -50,6 +51,21 @@ describe("edge key", () => {
     expect(heldEdgeKey()).toBe(KEY);
     await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(fetchKey).toHaveBeenCalledTimes(2);
+  });
+
+  it("exposes the held key to Android's native HTTP requests", async () => {
+    session.current = { accessToken: "a" };
+    const fetchKey = vi.fn(async () => ({
+      key: KEY,
+      rotatesAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+    }));
+    stop = initEdgeKey(fetchKey);
+    await vi.waitFor(() => expect(heldEdgeKey()).toBe(KEY));
+
+    expect(edgeKeyHeadersForPlatform("android")).toEqual({
+      "x-liner-edge": KEY,
+    });
+    expect(edgeKeyHeadersForPlatform("desktop")).toEqual({});
   });
 
   it("drops the key on sign-out and asks nothing while signed out", async () => {

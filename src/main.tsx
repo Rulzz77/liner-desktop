@@ -6,26 +6,37 @@ import { applyStoredTheme } from "@/shared/utils/storedTheme";
 
 initGlobalErrorHandlers();
 
-const isOverlay = window.location.hash.startsWith("#/overlay");
+const isAndroidTarget = __LINER_TARGET__ === "android";
+const isOverlay =
+  !isAndroidTarget && window.location.hash.startsWith("#/overlay");
 
 if (!isOverlay) applyStoredTheme();
+
+if (isAndroidTarget) {
+  document.documentElement.dataset.platform = "android";
+  document.body.classList.add("android-app");
+}
 
 async function loadRoot(): Promise<React.ReactElement> {
   if (isOverlay) {
     const { default: OverlayApp } = await import("./app/OverlayApp");
     return <OverlayApp />;
   }
-  const [
-    { initMainWindowServices },
-    { default: App },
-    { default: RootErrorBoundary },
-  ] = await Promise.all([
-    import("./app/mainWindowServices"),
+
+  const [{ default: App }, { default: RootErrorBoundary }] = await Promise.all([
     import("./app/App"),
     import("@/shared/ui/RootErrorBoundary"),
     hydrateScreenCache(),
   ]);
-  initMainWindowServices();
+
+  if (isAndroidTarget) {
+    const { initAndroidServices } = await import("./app/androidServices");
+    initAndroidServices();
+  } else {
+    const { initMainWindowServices } = await import("./app/mainWindowServices");
+    initMainWindowServices();
+  }
+
   return (
     <RootErrorBoundary>
       <App />

@@ -48,6 +48,24 @@ export async function signApiRequest(
   body?: string | null,
   customTimestamp?: number,
 ): Promise<SignedHeaders> {
+  const cleanPath = path.split("?")[0].trim();
+  const timestamp = customTimestamp ?? getAdjustedTimestamp();
+
+  if (__LINER_TARGET__ === "android") {
+    const { signRequestInBrowser } = await import("./browserSigner");
+    const result = await signRequestInBrowser(
+      method,
+      cleanPath,
+      body,
+      timestamp,
+    );
+    return {
+      "x-liner-signature": result.signature,
+      "x-liner-timestamp": String(result.timestamp),
+      "x-liner-nonce": result.nonce,
+    };
+  }
+
   if (!isElectron()) {
     if (import.meta.env.DEV) {
       console.warn(
@@ -56,9 +74,6 @@ export async function signApiRequest(
     }
     return {};
   }
-
-  const cleanPath = path.split("?")[0].trim();
-  const timestamp = customTimestamp ?? getAdjustedTimestamp();
 
   try {
     const res = await window.linerElectron!.signRequest({

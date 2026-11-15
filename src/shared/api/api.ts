@@ -66,6 +66,7 @@ import {
 } from "./proofOfWork";
 import { solvePow } from "./proofOfWorkRunner";
 import { refreshEdgeKey, type EdgeKeyAnswer } from "./edgeKey";
+import { edgeKeyHeadersForPlatform } from "./edgeKeyState";
 import {
   isHumanCheckMode,
   runHumanCheck,
@@ -74,7 +75,7 @@ import {
 
 const CLIENT_VERSION =
   (import.meta.env.VITE_CLIENT_VERSION as string | undefined) ||
-  "1.0.4-desktop";
+  (__LINER_TARGET__ === "android" ? "1.0.4-android" : "1.0.4-desktop");
 
 const DEFAULT_TIMEOUT_MS = 15000;
 const LYRICS_CONNECT_TIMEOUT_MS = 12000;
@@ -150,8 +151,10 @@ async function fetchWithTimeout(
 }
 
 function getPlatform(): string {
+  if (__LINER_TARGET__ === "android") return "android";
   if (typeof navigator === "undefined") return "desktop";
   const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("android")) return "android";
   if (ua.includes("win")) return "windows";
   if (ua.includes("mac")) return "macos";
   if (ua.includes("linux")) return "linux";
@@ -321,6 +324,7 @@ async function executeRequest<T>(
           ...correlationHeaders,
           ...signedHeaders,
           ...restHeaders,
+          ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
         },
       },
       timeoutMs,
@@ -398,6 +402,7 @@ async function executeRequest<T>(
             ...correlationHeaders,
             ...restHeaders,
             ...refreshedSignedHeaders,
+            ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
             ...(nextToken ? { Authorization: `Bearer ${nextToken}` } : {}),
           },
         },
@@ -1254,6 +1259,7 @@ export const api = {
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           ...correlationHeaders,
           ...signedHeaders,
+          ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
         },
       });
     } catch (fetchErr: any) {
@@ -1293,13 +1299,17 @@ export const api = {
     let buffer = "";
 
     const flushEvent = (): LyricsStreamEvent | null => {
-      const sep = buffer.indexOf("\n\n");
-      if (sep === -1) return null;
+      // SSE permits LF and CRLF framing. Some lyric providers/proxies emit
+      // CRLF; looking only for "\\n\\n" silently drops every event on those
+      // responses (the player then stays in the "loading" state forever).
+      const separator = /\\r?\\n\\r?\\n/.exec(buffer);
+      if (!separator || separator.index === undefined) return null;
+      const sep = separator.index;
       const rawEvent = buffer.slice(0, sep);
-      buffer = buffer.slice(sep + 2);
+      buffer = buffer.slice(sep + separator[0].length);
 
       const dataLines: string[] = [];
-      for (const line of rawEvent.split("\n")) {
+      for (const line of rawEvent.split(/\\r?\\n/)) {
         if (line.startsWith("data:")) {
           dataLines.push(line.slice(5).trim());
         }

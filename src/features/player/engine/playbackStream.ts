@@ -15,6 +15,7 @@ interface PlaybackStreamFormat {
   codec: string;
   bitrate: number;
   contentLength?: number;
+  itag?: number;
   source?: PlaybackSource;
   standIn?: boolean;
 }
@@ -36,10 +37,28 @@ export interface BufferedPlaybackStream extends PlaybackStreamFormat {
   completed?: undefined;
   needsFullSource?: undefined;
   release?: undefined;
-  fromLiner?: undefined;
+  fromLiner?: boolean;
 }
 
 export type PlaybackStream = UrlPlaybackStream | BufferedPlaybackStream;
+
+export function asBufferedPlaybackStream(
+  stream: UrlPlaybackStream,
+  blob: Blob,
+): BufferedPlaybackStream {
+  return {
+    blob,
+    source: stream.source,
+    mimeType: blob.type || stream.mimeType || "audio/mp4",
+    codec: stream.codec,
+    bitrate: stream.bitrate,
+    contentLength: blob.size,
+    expiresAtMs: null,
+    ...(stream.itag !== undefined ? { itag: stream.itag } : {}),
+    ...(stream.standIn ? { standIn: true } : {}),
+    ...(stream.fromLiner ? { fromLiner: true } : {}),
+  };
+}
 
 export type PlayableTrack = Pick<
   Track,
@@ -61,6 +80,7 @@ export function fromInnertubeStream(
     mimeType: direct.mimeType,
     codec: direct.codec,
     bitrate: direct.bitrate,
+    itag: direct.itag,
     expiresAtMs: toTimestamp(direct.expiresAt),
     ...(direct.contentLength ? { contentLength: direct.contentLength } : {}),
   };

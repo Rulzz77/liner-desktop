@@ -4,6 +4,7 @@ import { signApiRequest, syncServerTime } from "./requestSigner";
 export type { AuthTokens, AuthUser };
 
 import { getApiBaseUrl } from "./baseUrl";
+import { edgeKeyHeadersForPlatform } from "./edgeKeyState";
 
 const STORAGE_KEY = "liner_auth_session";
 const DEAD_REFRESH_CODES = new Set([
@@ -279,6 +280,7 @@ async function postRefresh(refreshToken: string): Promise<Response> {
     headers: {
       "Content-Type": "application/json",
       ...signedHeaders,
+      ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
     },
     body,
   });
@@ -315,6 +317,7 @@ export async function clearAuthSession(): Promise<void> {
   if (current && expiryMs !== null && expiryMs <= Date.now()) {
     current = (await refreshAuthSession()) ?? current;
   }
+  const edgeHeaders = edgeKeyHeadersForPlatform(__LINER_TARGET__);
   setAuthSession(null);
   if (!current?.refreshToken) return;
   const body = JSON.stringify({ refreshToken: current.refreshToken });
@@ -325,6 +328,7 @@ export async function clearAuthSession(): Promise<void> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${current.accessToken}`,
       ...signedHeaders,
+      ...edgeHeaders,
     },
     body,
   }).catch(() => undefined);

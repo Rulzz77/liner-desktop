@@ -1,4 +1,6 @@
 import { getAuthSession } from "./auth-session";
+import { setHeldEdgeKey } from "./edgeKeyState";
+export { edgeKeyHeadersForPlatform, heldEdgeKey } from "./edgeKeyState";
 
 export interface EdgeKeyAnswer {
   key: string;
@@ -15,10 +17,9 @@ const RETRY_MS = 10 * 60_000;
 let fetcher: FetchEdgeKey | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let inFlight: Promise<boolean> | null = null;
-let held: string | null = null;
 
 function hand(key: string | null): void {
-  held = key;
+  setHeldEdgeKey(key);
   if (typeof window !== "undefined") window.linerElectron?.setEdgeKey?.(key);
 }
 
@@ -57,10 +58,6 @@ export function refreshEdgeKey(): Promise<boolean> {
       inFlight = null;
     });
   return inFlight;
-}
-
-export function heldEdgeKey(): string | null {
-  return held;
 }
 
 export function initEdgeKey(fetchEdgeKey: FetchEdgeKey): () => void {

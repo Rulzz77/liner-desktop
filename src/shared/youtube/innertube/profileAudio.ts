@@ -19,6 +19,7 @@ import {
 export interface ProfileAudioOptions {
   signal?: AbortSignal;
   preferredCodec?: "opus" | "aac";
+  excludedItags?: readonly number[];
 }
 
 function playerBody(
@@ -70,7 +71,16 @@ export async function resolveWithProfile(
   const formats = extractAudioFormats(response).filter(
     (format) => player || format.url,
   );
-  const best = selectBestAudioFormat(formats, options.preferredCodec);
+  const preferredCodec =
+    options.preferredCodec ??
+    (typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android"
+      ? "aac"
+      : undefined);
+  const best = selectBestAudioFormat(
+    formats,
+    preferredCodec,
+    options.excludedItags,
+  );
   if (!best)
     throw new InnertubeError(
       `${profile.clientName} returned no direct audio formats.`,

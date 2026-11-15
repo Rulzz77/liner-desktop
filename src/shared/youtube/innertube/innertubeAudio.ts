@@ -1,5 +1,8 @@
 import { InnertubeError, type InnertubeProfile } from "./innertubeClient";
-import { PLAYBACK_PROFILES } from "./playbackProfiles";
+import {
+  ANDROID_PLAYBACK_PROFILES,
+  PLAYBACK_PROFILES,
+} from "./playbackProfiles";
 import { log } from "@/shared/utils/logger";
 import {
   resetWebRemixSession,
@@ -13,6 +16,7 @@ export type { ResolvedAudioStream } from "./innertubeAudioFormats";
 
 export {
   ANDROID_VR_PROFILE,
+  ANDROID_PLAYBACK_PROFILES,
   PLAYBACK_PROFILES,
   TV_PROFILE,
   VISIONOS_PROFILE,
@@ -51,9 +55,21 @@ async function resolveViaWebRemix(
   options: ResolveAudioOptions,
   failures: string[],
 ): Promise<ResolvedAudioStream | null> {
-  for (let attempt = 0; attempt < WEB_REMIX_ATTEMPTS; attempt += 1) {
+  const webRemixAttempts =
+    typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android"
+      ? 1
+      : WEB_REMIX_ATTEMPTS;
+  for (let attempt = 0; attempt < webRemixAttempts; attempt += 1) {
     try {
-      const stream = await resolveWebRemixAudioStream(videoId, options);
+      const isAndroid =
+        typeof __LINER_TARGET__ !== "undefined" &&
+        __LINER_TARGET__ === "android";
+      const stream = await resolveWebRemixAudioStream(videoId, {
+        signal: options.signal,
+        preferredCodec:
+          options.preferredCodec ?? (isAndroid ? "aac" : undefined),
+        excludedItags: options.excludedItags,
+      });
       await assertStreamReachable(
         stream.url,
         stream.contentLength,
@@ -90,6 +106,7 @@ async function resolveViaWebRemix(
 export interface ResolveAudioOptions {
   signal?: AbortSignal;
   preferredCodec?: "opus" | "aac";
+  excludedItags?: readonly number[];
   profiles?: readonly InnertubeProfile[];
 }
 
@@ -119,7 +136,10 @@ export async function resolveDirectAudioStream(
     failures.push(`WEB_REMIX paused: ${lastWebRemixError}`);
   }
   for (const profile of orderedProfiles(
-    options.profiles ?? PLAYBACK_PROFILES,
+    options.profiles ??
+      (typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android"
+        ? ANDROID_PLAYBACK_PROFILES
+        : PLAYBACK_PROFILES),
   )) {
     profilesTried += 1;
     try {

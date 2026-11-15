@@ -134,8 +134,11 @@ export function FullscreenPlayer({
 
       <FullscreenFrameGlass />
 
-      <div className="absolute inset-1.5 z-10 flex">
-        <div className="flex-1 flex flex-col items-center justify-center gap-5">
+      <div data-fullscreen-content className="absolute inset-1.5 z-10 flex">
+        <div
+          data-player-controls-pane
+          className="flex-1 flex flex-col items-center justify-center gap-5"
+        >
           <PlayerUiElements
             onClose={onClose}
             layout={isCompactLayout ? "horizontal" : "vertical"}

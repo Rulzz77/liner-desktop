@@ -16,6 +16,7 @@ export default function EnvironmentWarning() {
     }
   });
 
+  if (__LINER_TARGET__ === "android") return null;
   if (typeof window !== "undefined" && window.linerElectron) return null;
   if (skipped) return null;
 

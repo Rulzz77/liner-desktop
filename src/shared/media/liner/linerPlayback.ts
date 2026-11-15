@@ -1,5 +1,6 @@
 import { getAuthSession, getValidAccessToken } from "@/shared/api/auth-session";
 import { getApiBaseUrl } from "@/shared/api/baseUrl";
+import { edgeKeyHeadersForPlatform } from "@/shared/api/edgeKeyState";
 import { isAbortError } from "@/shared/utils/abort";
 import { log } from "@/shared/utils/logger";
 
@@ -48,6 +49,7 @@ export async function resolveLinerStream(
         headers: {
           authorization: `Bearer ${token}`,
           "content-type": "application/json",
+          ...edgeKeyHeadersForPlatform(__LINER_TARGET__),
         },
         body: "{}",
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
