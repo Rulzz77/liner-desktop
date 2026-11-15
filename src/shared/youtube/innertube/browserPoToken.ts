@@ -154,8 +154,12 @@ function rememberToken(identifier: string, token: CachedToken): void {
  * Mint a video-bound YouTube WEB PoToken in the Android WebView.
  * Desktop continues to use its isolated Electron worker.
  */
+export function isValidVideoPoTokenIdentifier(identifier: string): boolean {
+  return /^[A-Za-z0-9_-]{11}$/.test(identifier);
+}
+
 export async function mintBrowserPoToken(identifier: string): Promise<string> {
-  if (!/^[\\w=-]{1,128}$/.test(identifier)) {
+  if (!isValidVideoPoTokenIdentifier(identifier)) {
     throw new Error("Invalid YouTube PoToken identifier.");
   }
 
