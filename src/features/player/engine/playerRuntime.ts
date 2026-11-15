@@ -994,18 +994,65 @@ export class PlayerRuntime {
       const isAndroidTarget =
         typeof __LINER_TARGET__ !== "undefined" &&
         __LINER_TARGET__ === "android";
-      if (isAndroidTarget && !stream.blob && stream.source === "youtube") {
+      if (
+        isAndroidTarget &&
+        !stream.blob &&
+        stream.source !== "local"
+      ) {
         log(
           "cyan",
           "playback",
           `buffering remote Android audio through CapacitorHttp (${track.title})`,
         );
-        const bufferedAudio = await this.downloadAudioBlob(
-          stream,
-          controller.signal,
-        );
+        let bufferedAudio: Blob | null;
+        try {
+          bufferedAudio = await this.downloadAudioBlob(
+            stream,
+            controller.signal,
+          );
+        } catch (error) {
+          if (epoch !== this.loadEpoch || controller.signal.aborted) {
+            stream.release?.();
+            return;
+          }
+          if (stream.fromLiner) {
+            const retryPosition = Math.max(
+              0,
+              this.pendingStartPositionMs || startPositionMs,
+            );
+            this.tracksWithFailedLiner.add(track.id);
+            markLinerStreamFailed(`Android buffer failed: ${String(error)}`);
+            this.recoveryAttempts = 0;
+            this.recoveryHoldUntilMs = retryPosition + RECOVERY_HOLD_MS;
+            log(
+              "yellow",
+              "playback",
+              "Liner CDN could not be buffered on Android — retrying with YouTube audio",
+            );
+            void this.loadAndPlay(track, retryPosition, true);
+            return;
+          }
+          throw error;
+        }
         if (epoch !== this.loadEpoch || controller.signal.aborted) {
           stream.release?.();
+          return;
+        }
+        if (!bufferedAudio && stream.fromLiner) {
+          const retryPosition = Math.max(
+            0,
+            this.pendingStartPositionMs || startPositionMs,
+          );
+          this.tracksWithFailedLiner.add(track.id);
+          markLinerStreamFailed("Android buffer did not return a complete audio file");
+          this.recoveryAttempts = 0;
+          this.recoveryHoldUntilMs = retryPosition + RECOVERY_HOLD_MS;
+          log(
+            "yellow",
+            "playback",
+            "Liner CDN returned an unreadable file on Android — retrying with YouTube audio",
+          );
+          void this.loadAndPlay(track, retryPosition, true);
           return;
         }
         if (!bufferedAudio) {
@@ -1022,6 +1069,7 @@ export class PlayerRuntime {
           contentLength: bufferedAudio.size,
           expiresAtMs: null,
           ...(stream.itag !== undefined ? { itag: stream.itag } : {}),
+          ...(stream.fromLiner ? { fromLiner: true } : {}),
         };
         log(
           "green",
