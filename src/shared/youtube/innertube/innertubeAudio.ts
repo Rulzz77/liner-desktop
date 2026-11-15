@@ -61,14 +61,13 @@ async function resolveViaWebRemix(
       : WEB_REMIX_ATTEMPTS;
   for (let attempt = 0; attempt < webRemixAttempts; attempt += 1) {
     try {
+      const isAndroid =
+        typeof __LINER_TARGET__ !== "undefined" &&
+        __LINER_TARGET__ === "android";
       const stream = await resolveWebRemixAudioStream(videoId, {
-        ...options,
-        preferredCodec:
-          options.preferredCodec ??
-          (typeof __LINER_TARGET__ !== "undefined" &&
-          __LINER_TARGET__ === "android"
-            ? "aac"
-            : undefined),
+        signal: options.signal,
+        preferredCodec: options.preferredCodec ?? (isAndroid ? "aac" : undefined),
+        excludedItags: options.excludedItags,
       });
       await assertStreamReachable(
         stream.url,
@@ -106,6 +105,7 @@ async function resolveViaWebRemix(
 export interface ResolveAudioOptions {
   signal?: AbortSignal;
   preferredCodec?: "opus" | "aac";
+  excludedItags?: readonly number[];
   profiles?: readonly InnertubeProfile[];
 }
 
