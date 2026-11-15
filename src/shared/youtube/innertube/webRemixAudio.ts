@@ -210,8 +210,11 @@ export async function resolveWebRemixAudioStream(
     );
 
   const { candidate, source } = selection;
+  const player = innertube.session.player;
+  if (!player)
+    throw new InnertubeError("YouTube player script is unavailable.", 502);
 
-  const deciphered = await source.decipher(innertube.session.player);
+  const deciphered = await source.decipher(player);
   throwIfAborted(options.signal);
   const url = new URL(deciphered);
   url.searchParams.set("pot", poToken);
