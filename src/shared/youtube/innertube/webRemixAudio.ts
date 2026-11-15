@@ -72,9 +72,14 @@ async function mintContentPoToken(videoId: string): Promise<string> {
     typeof window === "undefined"
       ? undefined
       : window.linerElectron?.mintPoToken;
-  if (!mint)
-    throw new InnertubeError("PO tokens need a newer Liner app version.", 501);
-  return mint(videoId);
+  if (mint) return mint(videoId);
+
+  if (typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android") {
+    const { mintBrowserPoToken } = await import("./browserPoToken");
+    return mintBrowserPoToken(videoId);
+  }
+
+  throw new InnertubeError("PO tokens need a newer Liner app version.", 501);
 }
 
 function throwIfAborted(signal?: AbortSignal): void {
