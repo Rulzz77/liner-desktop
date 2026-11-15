@@ -1,4 +1,5 @@
 import { initOfflineMode } from "@/features/connectivity/engine/offlineController";
+import { api, initEdgeKey } from "@/shared/api";
 import { initTelemetry } from "@/shared/telemetry";
 import { initClientVisitorSession } from "@/shared/youtube";
 
@@ -11,6 +12,7 @@ export function initAndroidServices(): void {
 
   initTelemetry();
   initClientVisitorSession();
+  initEdgeKey(() => api.fetchEdgeKey());
 
   // Warm YouTube BotGuard once so first playback does not spend its resolver budget minting a PoToken.
   void import("@/shared/youtube/innertube/browserPoToken")
