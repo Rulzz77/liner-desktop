@@ -28,12 +28,7 @@ describe("WEB_REMIX audio format selection", () => {
       96_000,
     );
 
-    const result = chooseWebRemixAudioFormat(
-      [opus],
-      [muxedAac],
-      true,
-      "aac",
-    );
+    const result = chooseWebRemixAudioFormat([opus], [muxedAac], true, "aac");
 
     expect(result?.candidate).toMatchObject({
       itag: 18,
