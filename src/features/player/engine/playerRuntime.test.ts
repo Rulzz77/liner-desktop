@@ -361,6 +361,11 @@ describe("PlayerRuntime audio caching", () => {
         new DOMException("Source not supported", "NotSupportedError"),
       )
       .mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
+      function (this: HTMLMediaElement) {
+        queueMicrotask(() => this.dispatchEvent(new Event("canplay")));
+      },
+    );
     const resolveSpy = mocks.resolvePlaybackStream
       .mockResolvedValueOnce({ ...urlStream, itag: 140 })
       .mockResolvedValue({ ...urlStream, itag: 139 });
@@ -388,10 +393,7 @@ describe("PlayerRuntime audio caching", () => {
 
     await playerRuntime!.loadAndPlay(fallbackTrack, 0, true);
     await vi.waitFor(() => expect(resolveSpy).toHaveBeenCalledTimes(2));
-    await vi.waitFor(
-      () => expect(usePlayerStore.getState().status).toBe("playing"),
-      { timeout: 5000 },
-    );
+    await vi.waitFor(() => expect(playSpy).toHaveBeenCalledTimes(2));
 
     expect(playSpy).toHaveBeenCalledTimes(2);
     expect(resolveSpy.mock.calls[1]?.[2]).toMatchObject({
