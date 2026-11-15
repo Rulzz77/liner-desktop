@@ -118,16 +118,37 @@ export async function resolveWebRemixAudioStream(
       403,
     );
 
-  const audioFormats = (info.streaming_data?.adaptive_formats ?? []).filter(
+  const adaptiveAudioFormats = (
+    info.streaming_data?.adaptive_formats ?? []
+  ).filter(
     (format) =>
       format.has_audio &&
       !format.has_video &&
       format.mime_type.startsWith("audio/"),
   );
+  // Some videos only expose a muxed MP4 (audio + video) to WEB_REMIX.
+  // Android's MediaExtractor can play its AAC audio track through an audio
+  // element, so use it only when no standalone audio format is available.
+  const isAndroid =
+    typeof __LINER_TARGET__ !== "undefined" &&
+    __LINER_TARGET__ === "android";
+  const muxedAudioFormats =
+    isAndroid && adaptiveAudioFormats.length === 0
+      ? (info.streaming_data?.formats ?? []).filter(
+          (format) =>
+            format.has_audio &&
+            format.has_video &&
+            format.mime_type.startsWith("video/mp4") &&
+            format.mime_type.includes("mp4a.40.2"),
+        )
+      : [];
+  const audioFormats =
+    adaptiveAudioFormats.length > 0 ? adaptiveAudioFormats : muxedAudioFormats;
   const candidates: AudioFormat[] = audioFormats.map((format) => ({
     itag: format.itag,
     url: "",
-    mimeType: format.mime_type,
+    // Normalize muxed MP4 to an audio MIME type for the HTMLAudioElement.
+    mimeType: format.has_video ? "audio/mp4" : format.mime_type,
     bitrate: format.bitrate || format.average_bitrate || 0,
     ...(Number(format.content_length) > 0
       ? { contentLength: Number(format.content_length) }
@@ -142,7 +163,10 @@ export async function resolveWebRemixAudioStream(
     ? audioFormats.find((format) => format.itag === best.itag)
     : undefined;
   if (!best || !source)
-    throw new InnertubeError("WEB_REMIX returned no audio formats.", 502);
+    throw new InnertubeError(
+      "WEB_REMIX returned no audio-only or muxed AAC formats.",
+      502,
+    );
 
   const deciphered = await source.decipher(innertube.session.player);
   throwIfAborted(options.signal);
