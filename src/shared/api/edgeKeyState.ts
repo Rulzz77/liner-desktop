@@ -15,7 +15,5 @@ export function heldEdgeKey(): string | null {
 export function edgeKeyHeadersForPlatform(
   platform: "android" | "desktop",
 ): Record<string, string> {
-  return platform === "android" && held
-    ? { "x-liner-edge": held }
-    : {};
+  return platform === "android" && held ? { "x-liner-edge": held } : {};
 }
