@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   check:
@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || github.ref_name }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -36,20 +34,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format the playback test
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          pnpm exec prettier --write src/features/player/engine/playerRuntime.test.ts
-          if ! git diff --quiet -- src/features/player/engine/playerRuntime.test.ts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/features/player/engine/playerRuntime.test.ts
-            git commit -m "chore: format player runtime test"
-            git push origin "HEAD:${{ github.head_ref }}"
-          fi
-
       - name: Check build icons
         run: node scripts/verify-build-assets.mjs
 
       - name: Check
         run: pnpm check
+
+      - name: Check Android target build
+        run: pnpm android:build
