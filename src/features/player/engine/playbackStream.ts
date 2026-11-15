@@ -42,6 +42,24 @@ export interface BufferedPlaybackStream extends PlaybackStreamFormat {
 
 export type PlaybackStream = UrlPlaybackStream | BufferedPlaybackStream;
 
+export function asBufferedPlaybackStream(
+  stream: UrlPlaybackStream,
+  blob: Blob,
+): BufferedPlaybackStream {
+  return {
+    blob,
+    source: stream.source,
+    mimeType: blob.type || stream.mimeType || "audio/mp4",
+    codec: stream.codec,
+    bitrate: stream.bitrate,
+    contentLength: blob.size,
+    expiresAtMs: null,
+    ...(stream.itag !== undefined ? { itag: stream.itag } : {}),
+    ...(stream.standIn ? { standIn: true } : {}),
+    ...(stream.fromLiner ? { fromLiner: true } : {}),
+  };
+}
+
 export type PlayableTrack = Pick<
   Track,
   "id" | "title" | "artists" | "durationMs" | "artistList" | "audioVariant"
