@@ -22,6 +22,7 @@ import {
   resolveDirectAudioStream,
   STREAMS_REFUSED_MESSAGE,
   toVideoId,
+  TV_PROFILE,
 } from "./innertubeAudio";
 import {
   selectBestAudioFormat,
@@ -114,12 +115,30 @@ describe("audio format selection", () => {
     expect(selectBestAudioFormat([aac, opus], "aac")?.itag).toBe(140);
   });
 
+  it("returns the next available format when a failed itag is excluded", () => {
+    expect(selectBestAudioFormat([low, aac, opus], "aac", [140])?.itag).toBe(251);
+    expect(selectBestAudioFormat([low, aac, opus], "aac", [140, 251])?.itag).toBe(249);
+    expect(selectBestAudioFormat([aac], "aac", [140])).toBeNull();
+  });
+
   it("returns null when there are no direct audio formats", () => {
     expect(selectBestAudioFormat([])).toBeNull();
   });
 });
 
 describe("resolveDirectAudioStream", () => {
+  it("excludes a failed itag and resolves the next usable audio format", async () => {
+    const fetchSpy = mockPlayerApi([playerResponse([aac, opus])]);
+    const stream = await resolveDirectAudioStream("dQw4w9WgXcQ", {
+      profiles: [TV_PROFILE],
+      preferredCodec: "aac",
+      excludedItags: [140],
+    });
+
+    expect(stream).toMatchObject({ itag: 251, codec: "opus" });
+    expect(playerCalls(fetchSpy)).toHaveLength(1);
+  });
+
   it("resolves opus through the TV profile with a deciphered url and the player signature timestamp", async () => {
     const fetchSpy = mockPlayerApi([
       playerResponse([
