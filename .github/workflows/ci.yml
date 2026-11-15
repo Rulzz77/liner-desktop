@@ -37,13 +37,6 @@ jobs:
       - name: Check build icons
         run: node scripts/verify-build-assets.mjs
 
-      - name: Temporary inspect final Prettier output
-        run: |
-          for file in src/features/player/engine/playerRuntime.ts src/shared/api/edgeKeyState.ts; do
-            echo "===== PRETTIER OUTPUT: $file ====="
-            pnpm exec prettier "$file"
-          done
-
       - name: Check
         run: pnpm check
 
