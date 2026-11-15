@@ -49,6 +49,11 @@ export const ANDROID_VR_PROFILE: InnertubeProfile = {
   },
 };
 
+export const ANDROID_PLAYBACK_PROFILES: readonly InnertubeProfile[] = [
+  ANDROID_VR_PROFILE,
+  TV_PROFILE,
+];
+
 export const PLAYBACK_PROFILES: readonly InnertubeProfile[] = [
   TV_PROFILE,
   VISIONOS_PROFILE,
