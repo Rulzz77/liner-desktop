@@ -394,6 +394,9 @@ describe("PlayerRuntime audio caching", () => {
     await playerRuntime!.loadAndPlay(fallbackTrack, 0, true);
     await vi.waitFor(() => expect(resolveSpy).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(playSpy).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(usePlayerStore.getState().status).toBe("playing"),
+    );
 
     expect(playSpy).toHaveBeenCalledTimes(2);
     expect(resolveSpy.mock.calls[1]?.[2]).toMatchObject({
