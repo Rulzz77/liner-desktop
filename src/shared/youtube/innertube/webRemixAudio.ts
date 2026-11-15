@@ -66,6 +66,7 @@ export interface WebRemixFormatLike {
   bitrate?: number;
   average_bitrate?: number;
   content_length?: string | number;
+  decipher: (player: WebPlayer) => Promise<string>;
 }
 
 /**
