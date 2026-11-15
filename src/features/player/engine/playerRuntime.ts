@@ -23,7 +23,8 @@ import {
 
 // error recovery tuning (see the audio "error" handler)
 const RECOVERY_HOLD_MS = 3000;
-const WAITING_GRACE_MS = 300; // a buffering hiccup shorter than this never shows // must play this far past a recovery before it may retry again
+const WAITING_GRACE_MS = 300;
+const MAX_FORMAT_FALLBACKS = 8;
 
 export class PlayerRuntime {
   private audio: HTMLAudioElement;
@@ -44,6 +45,9 @@ export class PlayerRuntime {
   private attachedTrackId: string | null = null;
   // the attached source is a presigned r2 url (not a blob, not youtube)
   private attachedFromLiner = false;
+  private activeStreamItag: number | null = null;
+  private readonly failedAudioItags = new Map<string, Set<number>>();
+  private readonly tracksWithFailedLiner = new Set<string>();
   private preloadingTrackId: string | null = null;
   private preloadingPromise: Promise<void> | null = null;
   private preloadAbortController: AbortController | null = null;
@@ -418,8 +422,10 @@ export class PlayerRuntime {
         });
       }
 
-      if (this.attachedFromLiner) {
+      const failedLinerSource = this.attachedFromLiner;
+      if (failedLinerSource) {
         this.attachedFromLiner = false;
+        this.tracksWithFailedLiner.add(this.currentTrackId);
         markLinerStreamFailed(`media error ${code}`);
       }
 
@@ -440,14 +446,56 @@ export class PlayerRuntime {
       if (
         currentTrack &&
         currentTrack.id === this.currentTrackId &&
-        this.recoveryAttempts < 1
+        isDecode &&
+        failedLinerSource
+      ) {
+        this.recoveryAttempts = 0;
+        this.recoveryHoldUntilMs = posMs + RECOVERY_HOLD_MS;
+        log(
+          "yellow",
+          "playback",
+          "Liner CDN stream was rejected by the media decoder — retrying with YouTube audio",
+        );
+        void this.loadAndPlay(currentTrack, posMs, true);
+        return;
+      }
+
+      if (
+        currentTrack &&
+        currentTrack.id === this.currentTrackId &&
+        isDecode &&
+        this.activeStreamItag !== null
+      ) {
+        const failed = this.failedAudioItags.get(currentTrack.id) ?? new Set<number>();
+        failed.add(this.activeStreamItag);
+        this.failedAudioItags.set(currentTrack.id, failed);
+
+        if (failed.size <= MAX_FORMAT_FALLBACKS) {
+          this.recoveryAttempts = 0;
+          this.recoveryHoldUntilMs = posMs + RECOVERY_HOLD_MS;
+          log(
+            "yellow",
+            "playback",
+            `Android/browser rejected audio itag ${this.activeStreamItag}; trying another format (${failed.size}/${MAX_FORMAT_FALLBACKS})`,
+          );
+          void this.loadAndPlay(currentTrack, posMs, true);
+          return;
+        }
+      }
+
+      if (
+        currentTrack &&
+        currentTrack.id === this.currentTrackId &&
+        this.recoveryAttempts < 1 &&
+        (this.failedAudioItags.get(currentTrack.id)?.size ?? 0) === 0 &&
+        !this.tracksWithFailedLiner.has(currentTrack.id)
       ) {
         this.recoveryAttempts++;
         this.recoveryHoldUntilMs = posMs + RECOVERY_HOLD_MS;
         log(
           "yellow",
           "playback",
-          `audio error encountered — recovering via cache/stream at ${posMs}ms`,
+          `audio error encountered — recovering via fresh cache/stream at ${posMs}ms`,
         );
         void this.loadAndPlay(currentTrack, posMs, true);
         return;
@@ -624,6 +672,8 @@ export class PlayerRuntime {
       this.audio.removeAttribute("src");
       this.audio.load();
       this.attachedTrackId = null;
+      this.activeStreamItag = null;
+      this.attachedFromLiner = false;
     } catch {
     } finally {
       this.isResetting = false;
@@ -763,6 +813,13 @@ export class PlayerRuntime {
     const epoch = ++this.loadEpoch;
 
     if (this.currentTrackId !== track.id) {
+      if (this.currentTrackId) {
+        this.failedAudioItags.delete(this.currentTrackId);
+        this.tracksWithFailedLiner.delete(this.currentTrackId);
+      }
+      this.failedAudioItags.delete(track.id);
+      this.tracksWithFailedLiner.delete(track.id);
+      this.activeStreamItag = null;
       this.recoveryAttempts = 0;
       this.recoveryHoldUntilMs = null;
     }
@@ -819,6 +876,8 @@ export class PlayerRuntime {
 
       if (cachedAudio && isValidCachedBlob) {
         this.currentSessionExpiresAt = null;
+        this.activeStreamItag = null;
+        this.attachedFromLiner = false;
         void linerDb.putTrack(track);
         const blobUrl = URL.createObjectURL(cachedAudio.blob);
         this.attachSource(blobUrl, true, track.id);
@@ -871,6 +930,10 @@ export class PlayerRuntime {
 
       const stream = await resolvePlaybackStream(track, controller.signal, {
         progressive: true,
+        excludedItags: [
+          ...(this.failedAudioItags.get(track.id) ?? new Set<number>()),
+        ],
+        skipLiner: this.tracksWithFailedLiner.has(track.id),
       });
       this.ttfbMs = Math.round(performance.now() - this.loadStartTime);
 
@@ -891,6 +954,7 @@ export class PlayerRuntime {
       this.releaseStream();
       const url = stream.blob ? URL.createObjectURL(stream.blob) : stream.url;
       this.attachSource(url, Boolean(stream.blob), track.id);
+      this.activeStreamItag = stream.itag ?? null;
       this.attachedFromLiner = Boolean(stream.fromLiner);
       this.releaseActiveStream = stream.release ?? null;
       this.watchFullSource(track.id, stream);
