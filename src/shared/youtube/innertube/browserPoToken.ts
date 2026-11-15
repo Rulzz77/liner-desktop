@@ -200,6 +200,11 @@ async function getMinter(): Promise<MinterEntry> {
   return pendingMinter;
 }
 
+/** Prepare BotGuard/WEB PoToken state before the first track is requested. */
+export async function warmBrowserPoToken(): Promise<void> {
+  await getMinter();
+}
+
 function rememberToken(identifier: string, token: CachedToken): void {
   tokenCache.delete(identifier);
   tokenCache.set(identifier, token);
