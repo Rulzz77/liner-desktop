@@ -43,6 +43,8 @@ export class PlayerRuntime {
   // source stays attached (paused) until the next one is ready, so this can lag
   // currentTrackId for a moment.
   private attachedTrackId: string | null = null;
+  private attachedLoadEpoch = 0;
+  private handledMediaErrorEpoch: number | null = null;
   // the attached source is a presigned r2 url (not a blob, not youtube)
   private attachedFromLiner = false;
   private activeStreamItag: number | null = null;
@@ -263,6 +265,74 @@ export class PlayerRuntime {
     }
   }
 
+  private retryUnsupportedMedia(
+    track: Track,
+    positionMs: number,
+    sourceEpoch: number,
+    source: { fromLiner: boolean; itag: number | null; isBlob: boolean },
+  ): "retry" | "handled" | "exhausted" {
+    if (this.handledMediaErrorEpoch === sourceEpoch) return "handled";
+    this.handledMediaErrorEpoch = sourceEpoch;
+
+    if (source.fromLiner) {
+      this.attachedFromLiner = false;
+      this.tracksWithFailedLiner.add(track.id);
+      markLinerStreamFailed("media decoder rejected the Liner stream");
+      this.recoveryAttempts = 0;
+      this.recoveryHoldUntilMs = positionMs + RECOVERY_HOLD_MS;
+      log(
+        "yellow",
+        "playback",
+        "Liner CDN stream was rejected — retrying with YouTube audio",
+      );
+      void this.loadAndPlay(track, positionMs, true);
+      return "retry";
+    }
+
+    if (source.isBlob) {
+      if (this.activeBlobUrl) {
+        URL.revokeObjectURL(this.activeBlobUrl);
+        this.activeBlobUrl = null;
+      }
+      void linerDb.deleteAudio(track.id);
+      audioCache.deleteAudio(track.id);
+    }
+
+    if (source.itag !== null) {
+      const failed =
+        this.failedAudioItags.get(track.id) ?? new Set<number>();
+      failed.add(source.itag);
+      this.failedAudioItags.set(track.id, failed);
+
+      if (failed.size <= MAX_FORMAT_FALLBACKS) {
+        this.recoveryAttempts = 0;
+        this.recoveryHoldUntilMs = positionMs + RECOVERY_HOLD_MS;
+        log(
+          "yellow",
+          "playback",
+          `Media decoder rejected itag ${source.itag}; trying another audio format (${failed.size}/${MAX_FORMAT_FALLBACKS})`,
+        );
+        void this.loadAndPlay(track, positionMs, true);
+        return "retry";
+      }
+      return "exhausted";
+    }
+
+    if (this.recoveryAttempts < 1) {
+      this.recoveryAttempts += 1;
+      this.recoveryHoldUntilMs = positionMs + RECOVERY_HOLD_MS;
+      log(
+        "yellow",
+        "playback",
+        "Unsupported cached/blob source — removing it and resolving a fresh stream",
+      );
+      void this.loadAndPlay(track, positionMs, true);
+      return "retry";
+    }
+
+    return "exhausted";
+  }
+
   private setupAudioListeners(audioEl: HTMLAudioElement) {
     audioEl.addEventListener("timeupdate", () => {
       if (this.isResetting || audioEl !== this.audio) return;
@@ -423,20 +493,11 @@ export class PlayerRuntime {
         });
       }
 
-      const failedLinerSource = this.attachedFromLiner;
-      if (failedLinerSource) {
-        this.attachedFromLiner = false;
-        this.tracksWithFailedLiner.add(currentTrackId);
-        markLinerStreamFailed(`media error ${code}`);
-      }
-
-      if (this.activeBlobUrl) {
-        URL.revokeObjectURL(this.activeBlobUrl);
-        this.activeBlobUrl = null;
-        void linerDb.deleteAudio(currentTrackId);
-        audioCache.deleteAudio(currentTrackId);
-      }
-
+      const source = {
+        fromLiner: this.attachedFromLiner,
+        itag: this.activeStreamItag,
+        isBlob: Boolean(this.activeBlobUrl),
+      };
       const store = usePlayerStore.getState();
       const currentTrack = store.currentTrack;
       const posMs =
@@ -444,46 +505,23 @@ export class PlayerRuntime {
           ? Math.round(audioEl.currentTime * 1000)
           : store.positionMs;
 
-      if (
-        currentTrack &&
-        currentTrack.id === currentTrackId &&
-        isDecode &&
-        failedLinerSource
-      ) {
-        this.recoveryAttempts = 0;
-        this.recoveryHoldUntilMs = posMs + RECOVERY_HOLD_MS;
-        log(
-          "yellow",
-          "playback",
-          "Liner CDN stream was rejected by the media decoder — retrying with YouTube audio",
-        );
-        void this.loadAndPlay(currentTrack, posMs, true);
-        return;
+      if (source.isBlob) {
+        if (this.activeBlobUrl) {
+          URL.revokeObjectURL(this.activeBlobUrl);
+          this.activeBlobUrl = null;
+        }
+        void linerDb.deleteAudio(currentTrackId);
+        audioCache.deleteAudio(currentTrackId);
       }
 
-      if (
-        currentTrack &&
-        currentTrack.id === this.currentTrackId &&
-        isDecode &&
-        this.activeStreamItag !== null
-      ) {
-        const failed =
-          this.failedAudioItags.get(currentTrack.id) ?? new Set<number>();
-        failed.add(this.activeStreamItag);
-        this.failedAudioItags.set(currentTrack.id, failed);
-
-        if (failed.size <= MAX_FORMAT_FALLBACKS) {
-          this.recoveryAttempts = 0;
-          this.recoveryHoldUntilMs = posMs + RECOVERY_HOLD_MS;
-          log(
-            "yellow",
-            "playback",
-            `Android/browser rejected audio itag ${this.activeStreamItag}; ` +
-              `trying another format (${failed.size}/${MAX_FORMAT_FALLBACKS})`,
-          );
-          void this.loadAndPlay(currentTrack, posMs, true);
-          return;
-        }
+      if (currentTrack && currentTrack.id === currentTrackId && isDecode) {
+        const recovery = this.retryUnsupportedMedia(
+          currentTrack,
+          posMs,
+          this.attachedLoadEpoch,
+          source,
+        );
+        if (recovery !== "exhausted") return;
       }
 
       if (
@@ -645,6 +683,7 @@ export class PlayerRuntime {
     this.activeBlobUrl = url;
     this.audio.src = url;
     this.attachedFromLiner = false;
+    this.attachedLoadEpoch = this.loadEpoch;
     this.applyPlaybackRateAndPitch();
     const settle = () => {
       this.isResetting = false;
@@ -675,6 +714,7 @@ export class PlayerRuntime {
       this.audio.removeAttribute("src");
       this.audio.load();
       this.attachedTrackId = null;
+      this.attachedLoadEpoch = 0;
       this.activeStreamItag = null;
       this.attachedFromLiner = false;
     } catch {
@@ -698,11 +738,17 @@ export class PlayerRuntime {
     }
   }
 
-  private attachSource(url: string, isBlob: boolean, trackId: string) {
+  private attachSource(
+    url: string,
+    isBlob: boolean,
+    trackId: string,
+    loadEpoch: number,
+  ) {
     const previousBlob = this.activeBlobUrl;
     this.audio.src = url;
     this.activeBlobUrl = isBlob ? url : null;
     this.attachedTrackId = trackId;
+    this.attachedLoadEpoch = loadEpoch;
     this.attachedFromLiner = false;
     if (previousBlob && previousBlob !== url) URL.revokeObjectURL(previousBlob);
   }
@@ -883,7 +929,7 @@ export class PlayerRuntime {
         this.attachedFromLiner = false;
         void linerDb.putTrack(track);
         const blobUrl = URL.createObjectURL(cachedAudio.blob);
-        this.attachSource(blobUrl, true, track.id);
+        this.attachSource(blobUrl, true, track.id, epoch);
         this.audio.volume = 0;
         this.audio.load();
         this.applyPlaybackRateAndPitch();
@@ -956,7 +1002,7 @@ export class PlayerRuntime {
       log("cyan", "playback", `resolved stream for ${track.title}`);
       this.releaseStream();
       const url = stream.blob ? URL.createObjectURL(stream.blob) : stream.url;
-      this.attachSource(url, Boolean(stream.blob), track.id);
+      this.attachSource(url, Boolean(stream.blob), track.id, epoch);
       this.activeStreamItag = stream.itag ?? null;
       this.attachedFromLiner = Boolean(stream.fromLiner);
       this.releaseActiveStream = stream.release ?? null;
@@ -1031,6 +1077,43 @@ export class PlayerRuntime {
         );
         usePlayerStore.getState().setStatus("paused");
         return;
+      }
+
+      const mediaErrorCode = this.audio.error?.code;
+      const isUnsupportedMedia =
+        error instanceof DOMException && error.name === "NotSupportedError";
+      if (
+        isUnsupportedMedia &&
+        this.attachedTrackId === track.id &&
+        this.attachedLoadEpoch === epoch
+      ) {
+        const recovery = this.retryUnsupportedMedia(
+          track,
+          Math.max(0, this.pendingStartPositionMs || startPositionMs),
+          epoch,
+          {
+            fromLiner: this.attachedFromLiner,
+            itag: this.activeStreamItag,
+            isBlob: Boolean(this.activeBlobUrl),
+          },
+        );
+        if (recovery !== "exhausted") return;
+      } else if (
+        (mediaErrorCode === 3 || mediaErrorCode === 4) &&
+        this.attachedTrackId === track.id &&
+        this.attachedLoadEpoch === epoch
+      ) {
+        const recovery = this.retryUnsupportedMedia(
+          track,
+          Math.max(0, this.pendingStartPositionMs || startPositionMs),
+          epoch,
+          {
+            fromLiner: this.attachedFromLiner,
+            itag: this.activeStreamItag,
+            isBlob: Boolean(this.activeBlobUrl),
+          },
+        );
+        if (recovery !== "exhausted") return;
       }
 
       if (
