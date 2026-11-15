@@ -1,5 +1,8 @@
 import { InnertubeError, type InnertubeProfile } from "./innertubeClient";
-import { PLAYBACK_PROFILES } from "./playbackProfiles";
+import {
+  ANDROID_PLAYBACK_PROFILES,
+  PLAYBACK_PROFILES,
+} from "./playbackProfiles";
 import { log } from "@/shared/utils/logger";
 import {
   resetWebRemixSession,
