@@ -301,6 +301,7 @@ export class PlayerRuntime {
     }
 
     if (source.itag !== null) {
+      // Keep rejected formats out of every subsequent resolver pass for this track.
       const failed = this.failedAudioItags.get(track.id) ?? new Set<number>();
       failed.add(source.itag);
       this.failedAudioItags.set(track.id, failed);
