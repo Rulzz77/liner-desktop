@@ -118,9 +118,8 @@ export async function resolveWebRemixAudioStream(
       403,
     );
 
-  const adaptiveAudioFormats = (
-    info.streaming_data?.adaptive_formats ?? []
-  ).filter(
+  const adaptiveFormats = info.streaming_data?.adaptive_formats ?? [];
+  const adaptiveAudioFormats = adaptiveFormats.filter(
     (format) =>
       format.has_audio &&
       !format.has_video &&
@@ -130,11 +129,11 @@ export async function resolveWebRemixAudioStream(
   // Android's MediaExtractor can play its AAC audio track through an audio
   // element, so use it only when no standalone audio format is available.
   const isAndroid =
-    typeof __LINER_TARGET__ !== "undefined" &&
-    __LINER_TARGET__ === "android";
+    typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android";
+  const progressiveFormats = info.streaming_data?.formats ?? [];
   const muxedAudioFormats =
     isAndroid && adaptiveAudioFormats.length === 0
-      ? (info.streaming_data?.formats ?? []).filter(
+      ? progressiveFormats.filter(
           (format) =>
             format.has_audio &&
             format.has_video &&
@@ -143,7 +142,9 @@ export async function resolveWebRemixAudioStream(
         )
       : [];
   const audioFormats =
-    adaptiveAudioFormats.length > 0 ? adaptiveAudioFormats : muxedAudioFormats;
+    adaptiveAudioFormats.length > 0
+      ? adaptiveAudioFormats
+      : muxedAudioFormats;
   const candidates: AudioFormat[] = audioFormats.map((format) => ({
     itag: format.itag,
     url: "",
