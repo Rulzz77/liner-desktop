@@ -200,7 +200,10 @@ async function resolveStream(
   return progressive ? withResolveTimeout(signal, resolve) : resolve(signal);
 }
 
-export const RESOLVE_TIMEOUT_MS = 25_000;
+export const RESOLVE_TIMEOUT_MS =
+  typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android"
+    ? 60_000
+    : 25_000;
 export const RESOLVE_TIMEOUT_MESSAGE =
   "Timed out looking for a playable stream";
 
