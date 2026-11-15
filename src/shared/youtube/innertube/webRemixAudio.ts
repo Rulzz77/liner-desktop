@@ -198,8 +198,7 @@ export async function resolveWebRemixAudioStream(
   const selection = chooseWebRemixAudioFormat(
     info.streaming_data?.adaptive_formats ?? [],
     info.streaming_data?.formats ?? [],
-    typeof __LINER_TARGET__ !== "undefined" &&
-      __LINER_TARGET__ === "android",
+    typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android",
     options.preferredCodec,
     options.excludedItags,
   );
