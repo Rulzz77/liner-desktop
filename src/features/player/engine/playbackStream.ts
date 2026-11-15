@@ -15,6 +15,7 @@ interface PlaybackStreamFormat {
   codec: string;
   bitrate: number;
   contentLength?: number;
+  itag?: number;
   source?: PlaybackSource;
   standIn?: boolean;
 }
@@ -61,6 +62,7 @@ export function fromInnertubeStream(
     mimeType: direct.mimeType,
     codec: direct.codec,
     bitrate: direct.bitrate,
+    itag: direct.itag,
     expiresAtMs: toTimestamp(direct.expiresAt),
     ...(direct.contentLength ? { contentLength: direct.contentLength } : {}),
   };
