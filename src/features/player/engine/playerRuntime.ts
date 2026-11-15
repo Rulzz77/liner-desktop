@@ -979,13 +979,57 @@ export class PlayerRuntime {
         return;
       }
 
-      const stream = await resolvePlaybackStream(track, controller.signal, {
+      let stream = await resolvePlaybackStream(track, controller.signal, {
         progressive: true,
         excludedItags: [
           ...(this.failedAudioItags.get(track.id) ?? new Set<number>()),
         ],
         skipLiner: this.tracksWithFailedLiner.has(track.id),
       });
+
+      // Android WebView applies CORS to cross-origin <audio> sources. The
+      // native CapacitorHttp fetch bridge can download these streams, so play
+      // them from a same-origin Blob URL instead of attaching googlevideo/R2
+      // URLs directly to HTMLAudioElement.
+      const isAndroidTarget =
+        typeof __LINER_TARGET__ !== "undefined" &&
+        __LINER_TARGET__ === "android";
+      if (isAndroidTarget && !stream.blob && stream.source !== "local") {
+        log(
+          "cyan",
+          "playback",
+          `buffering remote Android audio through CapacitorHttp (${track.title})`,
+        );
+        const bufferedAudio = await this.downloadAudioBlob(
+          stream,
+          controller.signal,
+        );
+        if (epoch !== this.loadEpoch || controller.signal.aborted) {
+          stream.release?.();
+          return;
+        }
+        if (!bufferedAudio) {
+          throw new Error(
+            "Android could not buffer the remote audio stream into a playable file.",
+          );
+        }
+        stream = {
+          blob: bufferedAudio,
+          source: stream.source,
+          mimeType: bufferedAudio.type || stream.mimeType || "audio/mp4",
+          codec: stream.codec,
+          bitrate: stream.bitrate,
+          contentLength: bufferedAudio.size,
+          expiresAtMs: null,
+          ...(stream.itag !== undefined ? { itag: stream.itag } : {}),
+        };
+        log(
+          "green",
+          "playback",
+          `remote audio buffered locally (${Math.round(bufferedAudio.size / 1024)} KB)`,
+        );
+      }
+
       this.ttfbMs = Math.round(performance.now() - this.loadStartTime);
 
       if (epoch !== this.loadEpoch || controller.signal.aborted) {
