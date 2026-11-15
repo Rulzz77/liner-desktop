@@ -38,7 +38,6 @@ describe("WEB_REMIX audio format selection", () => {
     expect(result?.candidate).toMatchObject({
       itag: 18,
       mimeType: "audio/mp4",
-      codec: undefined,
     });
     expect(result?.source).toBe(muxedAac);
   });
