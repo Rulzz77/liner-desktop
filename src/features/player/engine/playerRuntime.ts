@@ -467,8 +467,8 @@ export class PlayerRuntime {
         isDecode &&
         this.activeStreamItag !== null
       ) {
-        const failed = this.failedAudioItags.get(currentTrack.id) ??
-          new Set<number>();
+        const failed =
+          this.failedAudioItags.get(currentTrack.id) ?? new Set<number>();
         failed.add(this.activeStreamItag);
         this.failedAudioItags.set(currentTrack.id, failed);
 

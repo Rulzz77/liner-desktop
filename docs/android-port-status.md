@@ -12,6 +12,7 @@
 ## Local setup
 
 Requirements:
+
 - Node.js 22 or newer.
 - Android Studio 2025.2.1 or newer.
 - Android SDK Platform 24 or newer.

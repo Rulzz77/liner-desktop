@@ -66,8 +66,7 @@ async function resolveYoutubeAudio(
 ): Promise<PlaybackStream> {
   let accountFailure: string | null = null;
   const isAndroid =
-    typeof __LINER_TARGET__ !== "undefined" &&
-    __LINER_TARGET__ === "android";
+    typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android";
   // Android HTMLMediaElement needs a codec it can actually decode. The TV
   // account stream does not expose the format id needed for reliable fallback.
   if (
@@ -232,13 +231,7 @@ async function resolveStream(
       );
     const videoId = toVideoId(track.id);
     if (videoId)
-      return resolveYoutubeTrack(
-        track,
-        videoId,
-        progressive,
-        bounded,
-        options,
-      );
+      return resolveYoutubeTrack(track, videoId, progressive, bounded, options);
     return resolveYoutubeStandIn(
       track,
       progressive,

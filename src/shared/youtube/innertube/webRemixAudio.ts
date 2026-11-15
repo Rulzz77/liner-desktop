@@ -74,7 +74,10 @@ async function mintContentPoToken(videoId: string): Promise<string> {
       : window.linerElectron?.mintPoToken;
   if (mint) return mint(videoId);
 
-  if (typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android") {
+  if (
+    typeof __LINER_TARGET__ !== "undefined" &&
+    __LINER_TARGET__ === "android"
+  ) {
     const { mintBrowserPoToken } = await import("./browserPoToken");
     return mintBrowserPoToken(videoId);
   }

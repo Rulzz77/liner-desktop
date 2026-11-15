@@ -153,7 +153,8 @@ html[data-platform="android"] [role="button"] {
 }
 
 .android-app [data-fullscreen-content] {
-  inset: calc(var(--android-safe-top) + 44px) 12px calc(12px + var(--android-safe-bottom)) !important;
+  inset: calc(var(--android-safe-top) + 44px) 12px
+    calc(12px + var(--android-safe-bottom)) !important;
   flex-direction: column !important;
   gap: 12px;
   overflow: hidden;
@@ -219,7 +220,8 @@ html[data-platform="android"] [role="button"] {
 @media (orientation: landscape) {
   .android-app [data-fullscreen-content] {
     flex-direction: row !important;
-    inset: calc(var(--android-safe-top) + 8px) 12px calc(8px + var(--android-safe-bottom)) !important;
+    inset: calc(var(--android-safe-top) + 8px) 12px
+      calc(8px + var(--android-safe-bottom)) !important;
   }
 
   .android-app [data-player-controls-pane] {

@@ -66,7 +66,8 @@ async function resolveViaWebRemix(
         __LINER_TARGET__ === "android";
       const stream = await resolveWebRemixAudioStream(videoId, {
         signal: options.signal,
-        preferredCodec: options.preferredCodec ?? (isAndroid ? "aac" : undefined),
+        preferredCodec:
+          options.preferredCodec ?? (isAndroid ? "aac" : undefined),
         excludedItags: options.excludedItags,
       });
       await assertStreamReachable(

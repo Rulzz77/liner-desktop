@@ -26,9 +26,7 @@ let pendingMinter: Promise<MinterEntry> | null = null;
 const tokenCache = new Map<string, CachedToken>();
 const pendingTokens = new Map<string, Promise<string>>();
 
-async function generateIntegrityToken(
-  botguardResponse: string,
-): Promise<{
+async function generateIntegrityToken(botguardResponse: string): Promise<{
   integrityToken: string;
   estimatedTtlSecs: number;
   mintRefreshThreshold: number;
