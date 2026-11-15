@@ -52,6 +52,7 @@ import { isLocalTrackId } from "@/shared/media/local";
 import { readSavedLyrics } from "@/shared/media/saved";
 import { loadAmbientScript } from "@/shared/media/ambient";
 import { STREAMS_REFUSED_MESSAGE } from "@/shared/youtube";
+import { RESOLVE_TIMEOUT_MESSAGE } from "./streamResolver";
 import { OFFLINE_UNAVAILABLE_MESSAGE } from "@/features/connectivity/store/offlineModeStore";
 import { noteYoutubeTrouble } from "@/features/connectivity/engine/offlineController";
 
@@ -1313,6 +1314,28 @@ class PlayerEngine {
       description: translate("player.youtube_refused_description"),
     };
     this.consecutiveAutoSkips += 1;
+
+    // Android WebView can take longer to obtain YouTube stream credentials.
+    // Keep the failed track selected so the user can retry instead of silently skipping it.
+    if (
+      typeof __LINER_TARGET__ !== "undefined" &&
+      __LINER_TARGET__ === "android" &&
+      info.message.includes(RESOLVE_TIMEOUT_MESSAGE)
+    ) {
+      this.consecutiveAutoSkips = 0;
+      log(
+        "yellow",
+        "playback",
+        `Android stream resolution timed out for "${track.title}" — keeping the track selected for retry`,
+      );
+      store.setStatus("paused");
+      showToast(translate("player.track_unavailable_title"), "error", {
+        description: track.artists
+          ? `${track.title} — ${track.artists}`
+          : track.title,
+      });
+      return;
+    }
 
     if (this.consecutiveAutoSkips > MAX_CONSECUTIVE_AUTO_SKIPS) {
       log(
