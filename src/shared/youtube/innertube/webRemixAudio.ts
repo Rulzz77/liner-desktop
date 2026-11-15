@@ -58,6 +58,83 @@ export function resetWebRemixSession(): void {
 
 export type WebPlayer = NonNullable<Innertube["session"]["player"]>;
 
+export interface WebRemixFormatLike {
+  itag: number;
+  has_audio: boolean;
+  has_video: boolean;
+  mime_type: string;
+  bitrate?: number;
+  average_bitrate?: number;
+  content_length?: string | number;
+}
+
+/**
+ * Prefer standalone AAC, then muxed AAC, and only then other audio-only
+ * formats. This matters on Android devices/WebViews that cannot decode Opus.
+ */
+export function chooseWebRemixAudioFormat<T extends WebRemixFormatLike>(
+  adaptiveFormats: readonly T[],
+  progressiveFormats: readonly T[],
+  isAndroid: boolean,
+  preferredCodec: "opus" | "aac" = "aac",
+  excludedItags: readonly number[] = [],
+): { candidate: AudioFormat; source: T } | null {
+  const audioOnly = adaptiveFormats.filter(
+    (format) =>
+      format.has_audio &&
+      !format.has_video &&
+      format.mime_type.startsWith("audio/"),
+  );
+  const toCandidates = (
+    formats: readonly T[],
+    forceAudioMime = false,
+  ): AudioFormat[] =>
+    formats.map((format) => ({
+      itag: format.itag,
+      url: "",
+      mimeType: forceAudioMime ? "audio/mp4" : format.mime_type,
+      bitrate: format.bitrate || format.average_bitrate || 0,
+      ...(Number(format.content_length) > 0
+        ? { contentLength: Number(format.content_length) }
+        : {}),
+    }));
+  const choose = (
+    formats: readonly T[],
+    forceAudioMime = false,
+  ): { candidate: AudioFormat; source: T } | null => {
+    const candidates = toCandidates(formats, forceAudioMime);
+    const candidate = selectBestAudioFormat(
+      candidates,
+      preferredCodec,
+      excludedItags,
+    );
+    const source = candidate
+      ? formats.find((format) => format.itag === candidate.itag)
+      : undefined;
+    return candidate && source ? { candidate, source } : null;
+  };
+
+  if (!isAndroid) return choose(audioOnly);
+
+  const standaloneAac = audioOnly.filter((format) =>
+    format.mime_type.startsWith("audio/mp4"),
+  );
+  const standaloneAacChoice = choose(standaloneAac);
+  if (standaloneAacChoice) return standaloneAacChoice;
+
+  const muxedAac = progressiveFormats.filter(
+    (format) =>
+      format.has_audio &&
+      format.has_video &&
+      format.mime_type.startsWith("video/mp4") &&
+      format.mime_type.includes("mp4a.40.2"),
+  );
+  const muxedAacChoice = choose(muxedAac, true);
+  if (muxedAacChoice) return muxedAacChoice;
+
+  return choose(audioOnly);
+}
+
 export async function getWebPlayer(): Promise<WebPlayer> {
   installPlayerEvaluator();
   const { innertube } = await getSession(await getClientVisitorData());
@@ -118,58 +195,25 @@ export async function resolveWebRemixAudioStream(
       403,
     );
 
-  const adaptiveFormats = info.streaming_data?.adaptive_formats ?? [];
-  const adaptiveAudioFormats = adaptiveFormats.filter(
-    (format) =>
-      format.has_audio &&
-      !format.has_video &&
-      format.mime_type.startsWith("audio/"),
-  );
-  // Some videos only expose a muxed MP4 (audio + video) to WEB_REMIX.
-  // Android's MediaExtractor can play its AAC audio track through an audio
-  // element, so use it only when no standalone audio format is available.
-  const isAndroid =
-    typeof __LINER_TARGET__ !== "undefined" && __LINER_TARGET__ === "android";
-  const progressiveFormats = info.streaming_data?.formats ?? [];
-  const muxedAudioFormats =
-    isAndroid && adaptiveAudioFormats.length === 0
-      ? progressiveFormats.filter(
-          (format) =>
-            format.has_audio &&
-            format.has_video &&
-            format.mime_type.startsWith("video/mp4") &&
-            format.mime_type.includes("mp4a.40.2"),
-        )
-      : [];
-  const audioFormats =
-    adaptiveAudioFormats.length > 0 ? adaptiveAudioFormats : muxedAudioFormats;
-  const candidates: AudioFormat[] = audioFormats.map((format) => ({
-    itag: format.itag,
-    url: "",
-    // Normalize muxed MP4 to an audio MIME type for the HTMLAudioElement.
-    mimeType: format.has_video ? "audio/mp4" : format.mime_type,
-    bitrate: format.bitrate || format.average_bitrate || 0,
-    ...(Number(format.content_length) > 0
-      ? { contentLength: Number(format.content_length) }
-      : {}),
-  }));
-  const best = selectBestAudioFormat(
-    candidates,
+  const selection = chooseWebRemixAudioFormat(
+    info.streaming_data?.adaptive_formats ?? [],
+    info.streaming_data?.formats ?? [],
+    typeof __LINER_TARGET__ !== "undefined" &&
+      __LINER_TARGET__ === "android",
     options.preferredCodec,
     options.excludedItags,
   );
-  const source = best
-    ? audioFormats.find((format) => format.itag === best.itag)
-    : undefined;
-  if (!best || !source)
+  if (!selection)
     throw new InnertubeError(
       "WEB_REMIX returned no audio-only or muxed AAC formats.",
       502,
     );
 
+  const { candidate, source } = selection;
+
   const deciphered = await source.decipher(innertube.session.player);
   throwIfAborted(options.signal);
   const url = new URL(deciphered);
   url.searchParams.set("pot", poToken);
-  return toResolvedStream({ ...best, url: url.toString() });
+  return toResolvedStream({ ...candidate, url: url.toString() });
 }
