@@ -64,15 +64,22 @@ export function extractAudioFormats(playerResponse: unknown): AudioFormat[] {
 export function selectBestAudioFormat(
   formats: AudioFormat[],
   preferredCodec?: "opus" | "aac",
+  excludedItags: readonly number[] = [],
 ): AudioFormat | null {
-  if (formats.length === 0) return null;
+  const excluded = new Set(excludedItags);
+  const available =
+    excluded.size > 0
+      ? formats.filter((format) => !excluded.has(format.itag))
+      : formats;
+  if (available.length === 0) return null;
+
   const order =
     preferredCodec === "aac" ? [140, 139, 251, 250, 249] : PREFERRED_ITAGS;
   for (const itag of order) {
-    const match = formats.find((format) => format.itag === itag);
+    const match = available.find((format) => format.itag === itag);
     if (match) return match;
   }
-  return [...formats].sort((a, b) => b.bitrate - a.bitrate)[0] ?? null;
+  return [...available].sort((a, b) => b.bitrate - a.bitrate)[0] ?? null;
 }
 
 function expiryFromUrl(url: string): string | null {
