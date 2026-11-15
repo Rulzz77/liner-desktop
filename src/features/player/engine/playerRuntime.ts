@@ -301,8 +301,7 @@ export class PlayerRuntime {
     }
 
     if (source.itag !== null) {
-      const failed =
-        this.failedAudioItags.get(track.id) ?? new Set<number>();
+      const failed = this.failedAudioItags.get(track.id) ?? new Set<number>();
       failed.add(source.itag);
       this.failedAudioItags.set(track.id, failed);
 
