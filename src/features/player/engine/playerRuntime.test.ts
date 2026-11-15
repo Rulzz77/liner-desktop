@@ -354,6 +354,50 @@ describe("PlayerRuntime audio caching", () => {
     expect(stored).toBeNull();
   });
 
+  it("tries a different YouTube itag after the media decoder rejects a stream", async () => {
+    const playSpy = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockResolvedValue();
+    const resolveSpy = mocks.resolvePlaybackStream
+      .mockResolvedValueOnce({ ...urlStream, itag: 140 })
+      .mockResolvedValue({ ...urlStream, itag: 139 });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3, 4]), {
+        status: 206,
+        headers: { "content-type": "audio/webm" },
+      }),
+    );
+
+    const fallbackTrack: Track = {
+      ...track,
+      id: "android-format-fallback",
+      title: "Android Format Fallback",
+    };
+    usePlayerStore.setState({
+      currentTrack: fallbackTrack,
+      positionMs: 0,
+    });
+
+    await playerRuntime!.loadAndPlay(fallbackTrack, 0, true);
+    expect(playSpy).toHaveBeenCalled();
+
+    const audio = (playerRuntime as unknown as { audio: HTMLAudioElement })
+      .audio;
+    Object.defineProperty(audio, "error", {
+      value: { code: 4, message: "MEDIA_ERR_SRC_NOT_SUPPORTED" },
+      configurable: true,
+    });
+    try {
+      audio.dispatchEvent(new Event("error"));
+      await vi.waitFor(() => expect(resolveSpy).toHaveBeenCalledTimes(2));
+      expect(resolveSpy.mock.calls[1]?.[2]).toMatchObject({
+        excludedItags: [140],
+      });
+    } finally {
+      Reflect.deleteProperty(audio, "error");
+    }
+  });
+
   it("drops an unreadable cached file, recovers from the network once and does not cache a dash segment", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     const resolveSpy = mocks.resolvePlaybackStream.mockResolvedValue(urlStream);
